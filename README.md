@@ -30,19 +30,7 @@ Consulta **`docs/DESPLIEGUE.md`** antes de ejecutar nada. Resumen:
 5. Ejecutar `docker compose up --build -d` y revisar logs/salud.
 6. Probar en un entorno desechable antes de usar datos reales.
 
-## Pruebas aisladas
-
-Desde una carpeta de pruebas ajena al proyecto en funcionamiento:
-
-```sh
-sh scripts/run_v92_e2e_isolated.sh
-sh scripts/run_full_tests_isolated.sh
-sh scripts/run_v93_release_isolated.sh
-```
-
-La instalacion local de pytest no es necesaria; Docker gestiona las dependencias
-las pruebas. Todos los scripts de pruebas usan contenedores desechables sin volumenes
-de produccion ni puertos publicados.
+Más información en **`docs/Manuales`**
 
 ## Backup y recuperacion
 
