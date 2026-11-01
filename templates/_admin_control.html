@@ -1,0 +1,169 @@
+{# VALBRICK · Propuesta A "Sala de control". Shared by both editions.
+   Edition-specific parts: _admin_phase_actions.html and _admin_edition_module.html. #}
+{% macro eur(value) -%}
+{{ ("{:,.2f}".format(value or 0))|replace(",", "X")|replace(".", ",")|replace("X", ".") }} €
+{%- endmacro %}
+{% macro icon(state) -%}
+{% if state %}<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10l4 4 8-8" fill="none" stroke="var(--vbc-ok)" stroke-width="2.2"></path></svg>
+{%- else %}<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="var(--vbc-warn)" stroke-width="2"></circle><path d="M10 6v5" stroke="var(--vbc-warn)" stroke-width="2"></path></svg>{% endif %}
+{%- endmacro %}
+{% set ov = overview %}
+<div class="vbc">
+  <header class="vbc-head">
+    <div>
+      <h1>Campaña {{ ov.campaign.year if ov.campaign else '' }}</h1>
+      <p>{% for step in ov.rail if step.state == 'current' %}{{ step.label }}{% if not loop.last %} · {% endif %}{% else %}Sin fase activa{% endfor %}
+        {%- if ov.checklist and not ov.minimum_met %} · el total colectivo aún no alcanza el mínimo{% endif %}</p>
+    </div>
+    <div class="vbc-chips">
+      <span class="vbc-chip{% if ov.test_mode %} is-warn{% endif %}">Modo de pruebas: {{ 'ACTIVADO' if ov.test_mode else 'desactivado' }}</span>
+      <span class="vbc-chip">Última copia: {{ last_backup.created_at or 'ninguna' }}</span>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="retroToggle">{{ _('ui.retro') }}</button>
+    </div>
+  </header>
+
+  <section class="vbc-panel" aria-label="Fases de la campaña">
+    <ol class="vbc-rail">
+      {% for step in ov.rail %}
+      <li class="is-{{ step.state }}"{% if step.state == 'current' %} aria-current="step"{% endif %}><span class="bar"></span><span>{{ step.number }} · {{ step.label }}{% if step.state == 'current' %} (actual){% endif %}</span></li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="vbc-kpis" aria-label="Indicadores">
+    <div class="vbc-panel vbc-kpi is-wide">
+      <small>{{ ov.amount_label }}</small>
+      <div><strong>{{ eur(ov.amount) }}</strong> <span class="vbc-note">de {{ eur(ov.minimum) }} mínimo</span></div>
+      <div class="vbc-meter" role="img" aria-label="{{ ov.percent }} % del mínimo"><span style="width: {{ ov.percent }}%"></span></div>
+      {% if ov.minimum_met %}<span class="vbc-note is-ok">Mínimo colectivo alcanzado</span>
+      {% else %}<span class="vbc-note is-warn">Faltan {{ eur(ov.missing) }} para el mínimo</span>{% endif %}
+    </div>
+    <div class="vbc-panel vbc-kpi">
+      <small>Participantes aprobados</small>
+      <strong>{{ ov.participants.approved if ov.participants else '—' }}</strong>
+      {% if ov.participants and ov.participants.to_review %}
+        <a href="{{ url_for('main.admin_dashboard', active_tab='usuarios') }}" class="vbc-note is-warn">{{ ov.participants.to_review }} declaración{{ 'es' if ov.participants.to_review != 1 }} por revisar</a>
+      {% elif ov.participants and ov.participants.without_document %}
+        <span class="vbc-note">{{ ov.participants.without_document }} sin documento firmado</span>
+      {% else %}<span class="vbc-note is-ok">Sin documentos pendientes</span>{% endif %}
+    </div>
+    <div class="vbc-panel vbc-kpi">
+      <small>Referencias seleccionadas</small>
+      {% if ov.selection %}
+        <strong>{{ ov.selection.count }} / {{ ov.selection.limit }}</strong>
+        {% if ov.selection.ties %}<span class="vbc-note is-warn">{{ ov.selection.ties }} empate{{ 's' if ov.selection.ties != 1 }} por resolver</span>
+        {% elif ov.selection.over_limit %}<span class="vbc-note is-warn">Supera el límite</span>
+        {% else %}<span class="vbc-note is-ok">Sin empates pendientes</span>{% endif %}
+      {% else %}
+        <strong>—</strong><span class="vbc-note">Se calcula en la selección final</span>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="vbc-row">
+    <section class="vbc-panel is-main" aria-labelledby="vbc-next">
+      <h2 id="vbc-next">{% if ov.checklist %}Para generar el pedido definitivo{% elif order_finalized %}Pedido definitivo generado{% else %}Siguiente paso{% endif %}</h2>
+      {% if ov.checklist %}
+      <ul class="vbc-check">
+        {% for item in ov.checklist %}
+        <li>{{ icon(item.done) }}<span>{{ item.label }}{% if not item.done and item.detail %} <span class="detail">· {{ item.detail }}</span>{% endif %}<span class="visually-hidden"> ({{ 'hecho' if item.done else 'pendiente' }})</span></span></li>
+        {% endfor %}
+      </ul>
+      {% elif order_finalized %}
+      <p>Descarga y revisa los archivos en «Pedido final». Después, archiva la campaña desde Campañas.</p>
+      {% else %}
+      <p class="vbc-note">{% if current_phase == 'first' %}Los participantes votan dentro de su presupuesto personal. Revisa las declaraciones pendientes antes de abrir la segunda votación.{% elif current_phase == 'second' %}Segunda ventana de votación. Al pasar a la selección final se calcula el ranking.{% elif current_phase == 'final' %}Resuelve empates y exceso en la pestaña Ranking antes de liberar el pedido.{% else %}Sigue el calendario configurado.{% endif %}</p>
+      {% endif %}
+      <div class="vbc-actions">
+        {% include "_admin_phase_actions.html" %}
+        {% if current_phase not in ['first', 'second'] or order_finalized %}
+        <a class="btn btn-outline-primary" href="#pedido-final">Ir al pedido final</a>
+        {% endif %}
+      </div>
+    </section>
+    {% include "_admin_edition_module.html" %}
+  </div>
+
+  {% if not order_finalized %}
+  <nav class="d-flex flex-wrap gap-2" aria-label="Tareas de la campaña">
+    <a href="{{ url_for('main.upload_data') }}" class="btn btn-outline-secondary btn-sm">{{ _('ui.upload_excel') }}</a>
+    <a href="{{ url_for('main.upload_users') }}" class="btn btn-outline-secondary btn-sm">{{ _('ui.upload_users') }}</a>
+    <a href="{{ url_for('main.set_dates') }}" class="btn btn-outline-secondary btn-sm">{{ _('ui.set_dates') }}</a>
+    <a href="{{ url_for('main.user_dashboard') }}" class="btn btn-outline-secondary btn-sm">{{ _('ui.user_view') }}</a>
+  </nav>
+  {% endif %}
+
+  <section class="vbc-panel" aria-labelledby="vbc-activity">
+    <h2 id="vbc-activity">Actividad reciente</h2>
+    {% if ov.activity %}
+    <div class="table-responsive">
+      <table class="vbc-activity">
+        <thead><tr><th scope="col">Cuándo</th><th scope="col">Quién</th><th scope="col">Acción</th></tr></thead>
+        <tbody>
+          {% for item in ov.activity %}
+          <tr><td>{{ item.when.strftime('%d/%m %H:%M') if item.when else '' }}</td><td>{{ item.who }}</td><td>{{ log_action_labels.get(item.action, item.action) }}{% if item.detail and '=' not in item.detail %} <span class="vbc-note">· {{ item.detail }}</span>{% endif %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <a href="{{ url_for('main.admin_dashboard', active_tab='logs') }}" class="vbc-note">Ver registro completo</a>
+    {% else %}<p class="vbc-note">Todavía no hay actividad registrada.</p>{% endif %}
+  </section>
+
+  <details class="vbc-panel vbc-system" id="sistema">
+    <summary>Sistema: copias de seguridad y modo de pruebas</summary>
+    <div class="vbc-sys-grid">
+      <div>
+        <h3 class="h6">Copias de seguridad</h3>
+        <p class="mb-2">Última copia:
+          {% if last_backup.file %}<strong>{{ last_backup.phase or '?' }} → {{ last_backup.target_phase or '?' }}</strong>{% if last_backup.created_at %}, {{ last_backup.created_at }}{% endif %}
+          {% else %}<span class="text-muted">ninguna registrada.</span>{% endif %}</p>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <form action="{{ url_for('main.create_backup') }}" method="post" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="phase_at_backup" value="{{ last_backup.phase or current_phase }}">
+            <input type="hidden" name="target_phase" value="{{ last_backup.target_phase or current_phase }}">
+            <button type="submit" class="btn btn-outline-primary">Crear copia ahora</button>
+          </form>
+          {% if last_backup.file %}<a class="btn btn-outline-secondary" href="{{ url_for('main.download_backup') }}">Descargar última copia</a>{% endif %}
+          {% if last_backup.error_log %}<a class="btn btn-outline-danger" href="{{ url_for('main.download_backup_log') }}">Descargar log de error</a>{% endif %}
+        </div>
+        <p class="vbc-note mb-0">La restauración no se hace desde la web: detén la aplicación y ejecuta <code>sh scripts/restore_offline.sh RUTA_DEL_BACKUP.zip</code> en el servidor. Guarda siempre una copia fuera del servidor.</p>
+      </div>
+      <div>
+        <h3 class="h6">Modo de pruebas</h3>
+        {% if test_mode_enabled %}
+          <p class="vbc-note is-warn">Activado para esta campaña: límites reducidos y exportación permitida bajo el mínimo. No uses datos reales.</p>
+          <form action="{{ url_for('main.toggle_test_mode') }}" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="enable" value="0">
+            <button type="submit" class="btn btn-outline-warning">Desactivar modo de pruebas</button>
+          </form>
+          <p class="vbc-note mt-2 mb-0">Al desactivarlo se conservan todos los votos y pedidos.</p>
+        {% elif current_phase == 'first' %}
+          <p class="vbc-note">Solo para ensayos con datos ficticios. Reduce límites y permite exportar bajo el mínimo. Únicamente se puede activar en la primera fase y sin pedidos.</p>
+          <form action="{{ url_for('main.toggle_test_mode') }}" method="post" class="d-flex flex-wrap gap-2 align-items-end">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="enable" value="1">
+            <div><label for="vbc-test-confirm" class="form-label vbc-note mb-1">Escribe MODO PRUEBAS</label>
+              <input id="vbc-test-confirm" name="confirm" class="form-control" autocomplete="off" required></div>
+            <button type="submit" class="btn btn-outline-warning">Activar modo de pruebas</button>
+          </form>
+        {% else %}
+          <p class="vbc-note mb-0">Desactivado. Solo puede activarse en la primera fase de una campaña sin pedidos.</p>
+        {% endif %}
+      </div>
+    </div>
+  </details>
+
+  <h2 class="vbc-section-title" id="gestion">Gestión detallada</h2>
+</div>
+<script>
+  /* Sidebar deep links (/admin#ranking) open the matching tab. */
+  window.addEventListener('load', function () {
+    var key = (window.location.hash || '').replace('#', '');
+    if (!/^[a-z-]+$/.test(key)) return;
+    var trigger = document.getElementById(key + '-tab');
+    if (trigger && window.bootstrap) { new bootstrap.Tab(trigger).show(); trigger.scrollIntoView({block: 'start'}); }
+  });
+</script>

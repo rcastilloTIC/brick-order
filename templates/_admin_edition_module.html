@@ -1,0 +1,40 @@
+{# Pública: plazo público de pedido insuficiente. Esta edición no tiene ampliación privada. #}
+{% set sp = shortage_panel %}
+{% set win = sp.window if sp else None %}
+{% if sp and (win or not overview.minimum_met) %}
+<section class="vbc-panel is-side vbc-module{% if win and win.status == 'reached' %} is-calm{% endif %}" aria-labelledby="vbc-shortage">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h2 id="vbc-shortage" class="mb-0">Plazo de pedido insuficiente</h2>
+    <strong class="vbc-note{% if not win or win.status != 'reached' %} is-warn{% else %} is-ok{% endif %}">
+      {% if not win %}Sin abrir{% elif win.status == 'open' %}Abierto{% elif win.status == 'reached' %}Mínimo alcanzado{% else %}Cancelado{% endif %}</strong>
+  </div>
+  {% if not win %}
+    <p class="mt-2">El pedido está {{ eur(overview.missing) }} por debajo del mínimo. Puedes avisar a todos los participantes y abrir un plazo de 1 a 30 días para que amplíen.</p>
+    <a class="btn btn-primary" href="{{ url_for('main.shortage_admin') }}">Avisar y abrir plazo</a>
+  {% elif win.status == 'open' %}
+    <p class="mt-2 mb-0">Cierra el {{ win.deadline_at.strftime('%d/%m/%Y %H:%M') if win.deadline_at else '—' }} (hora del servidor, UTC).</p>
+    <div class="vbc-stats">
+      <div><small>Han aceptado el aviso</small><strong>{{ sp.acks }} de {{ overview.participants.approved if overview.participants else '—' }}</strong></div>
+      <div><small>Falta para el mínimo</small><strong>{{ eur(overview.missing) }}</strong></div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <form action="{{ url_for('main.shortage_admin') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="check">
+        <button type="submit" class="btn btn-dark">Revisar cumplimiento ahora</button>
+      </form>
+      <a class="btn btn-outline-secondary" href="{{ url_for('main.shortage_admin') }}">Gestionar plazo</a>
+    </div>
+  {% elif win.status == 'reached' %}
+    <p class="mt-2 mb-0">El plazo se cerró al alcanzar el mínimo. Ya puedes generar el pedido definitivo.</p>
+  {% else %}
+    <p class="mt-2">El pedido se canceló por insuficiencia. La campaña queda congelada hasta que la cierres; votos y pedidos se conservan como histórico.</p>
+    <a class="btn btn-danger" href="{{ url_for('main.shortage_admin') }}">Cerrar campaña cancelada…</a>
+  {% endif %}
+</section>
+{% else %}
+<section class="vbc-panel is-side vbc-module is-calm" aria-labelledby="vbc-shortage">
+  <h2 id="vbc-shortage">Plazo de pedido insuficiente</h2>
+  <p class="vbc-note mb-0">{% if current_phase == 'order' %}No hace falta: el pedido alcanza el mínimo.{% else %}Disponible en la fase de pedido si el total no alcanza el mínimo colectivo.{% endif %}</p>
+</section>
+{% endif %}

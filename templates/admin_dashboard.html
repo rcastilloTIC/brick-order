@@ -1,145 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('admin.title') }}{% endblock %}
 {% block content %}
-<div class="vb-page-head d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-  <div><h2 class="mb-1">{{ _('admin.title') }}</h2><p class="vb-subtitle">{{ _('admin.subtitle') }}</p></div>
-  <button type="button" class="btn btn-outline-success btn-sm" id="retroToggle">{{ _('ui.retro') }}</button>
-</div>
-<div class="vb-admin-overview" aria-label="Resumen de la campaña">
-  <div class="vb-kpi"><span class="vb-kpi-icon">◷</span><div><small>{{ _('ui.campaign_status') }}</small><strong>{{ {'first':_('ui.phase1'),'second':_('ui.phase2'),'final':_('ui.final_phase'),'order':_('ui.order_phase')}.get(current_phase,_('ui.unknown')) }}</strong><span>{{ _('ui.campaign_calendar') }}</span></div></div>
-  <div class="vb-kpi"><span class="vb-kpi-icon vb-blue">▦</span><div><small>{{ _('ui.catalog') }}</small><strong>{{ pagination.total if pagination is defined and pagination else '—' }}</strong><span>{{ _('ui.catalog_refs') }}</span></div></div>
-  <div class="vb-kpi"><span class="vb-kpi-icon vb-violet">✓</span><div><small>{{ _('ui.final_order') }}</small><strong>{{ _('ui.generated') if order_finalized else _('ui.pending') }}</strong><span>{{ _('ui.materialization') }}</span></div></div>
-</div>
-{% if not order_finalized %}
-<div class="card mb-3 vb-actions-card">
-  <div class="card-header">
-    <strong>{{ _('ui.panel_actions') }}</strong>
-  </div>
-  <div class="card-body">
-    <div class="d-flex flex-wrap gap-2">
-      <a href="{{ url_for('main.upload_data') }}" class="btn btn-outline-primary">{{ _('ui.upload_excel') }}</a>
-      <a href="{{ url_for('main.upload_users') }}" class="btn btn-outline-info">{{ _('ui.upload_users') }}</a>
-      <a href="{{ url_for('main.set_dates') }}" class="btn btn-outline-secondary">{{ _('ui.set_dates') }}</a>
-      <a href="{{ url_for('main.user_dashboard') }}" class="btn btn-outline-success">{{ _('ui.user_view') }}</a>
-      {# Botones para el cambio de fase: según current_phase se muestra el botón correspondiente #}
-      {% if current_phase == 'first' %}
-        <form action="{{ url_for('main.activate_phase2') }}" method="post" class="d-inline">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="active_tab" value="productos">
-          <button type="submit" class="btn btn-warning">{{ _('ui.activate_phase2') }}</button>
-        </form>
-      {% elif current_phase == 'second' %}
-        <form action="{{ url_for('main.advance_phase') }}" method="post" class="d-inline">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="active_tab" value="productos">
-          <button type="submit" class="btn btn-warning">{{ _('ui.final_phase') }}</button>
-        </form>
-      {% elif current_phase == 'final' %}
-        <form action="{{ url_for('main.advance_order_phase') }}" method="post" class="d-inline">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="active_tab" value="ranking">
-          <button type="submit" class="btn btn-warning">{{ _('ui.release_order') }}</button>
-        </form>
-      {% elif current_phase == 'order' %}
-        <button type="button" class="btn btn-warning" disabled>{{ _('ui.active_order_phase') }}</button>
-      {% endif %}
-    </div>
-  </div>
-</div>
-{% endif %}
-<div class="card mb-3">
-  <div class="card-header">
-    <strong>{{ _('ui.phase_status') }}</strong>
-  </div>
-  <div class="card-body">
-    <div class="d-flex flex-wrap gap-2">
-      <span class="badge rounded-pill {{ 'text-bg-success' if current_phase == 'first' else 'text-bg-light text-dark' }}">{{ _('ui.phase1') }}</span>
-      <span class="badge rounded-pill {{ 'text-bg-success' if current_phase == 'second' else 'text-bg-light text-dark' }}">{{ _('ui.phase2') }}</span>
-      <span class="badge rounded-pill {{ 'text-bg-success' if current_phase == 'final' and not order_finalized else 'text-bg-light text-dark' }}">{{ _('ui.final_phase') }}</span>
-      <span class="badge rounded-pill {{ 'text-bg-success' if current_phase == 'order' else 'text-bg-light text-dark' }}">{{ _('ui.order_phase') }}</span>
-      <span class="badge rounded-pill {{ 'text-bg-success' if order_finalized else 'text-bg-light text-dark' }}">{{ _('ui.generated_order') }}</span>
-    </div>
-    <div class="mt-2 text-muted">
-      <div>
-        {% if current_phase == 'second' %}Disponible: pasar a fase final.{% elif current_phase == 'final' %}Disponible: ajustar ranking y liberar fase pedido.{% elif current_phase == 'order' %}Disponible: cerrar pedido.{% else %}Sigue el calendario configurado.{% endif %}
-      </div>
-    </div>
-  </div>
-</div>
-<div class="card mb-3">
-  <div class="card-header">
-    <button class="btn btn-link text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#adminRiskyActions" aria-expanded="false" aria-controls="adminRiskyActions">
-      <strong>Acciones sensibles</strong>
-    </button>
-  </div>
-  <div class="collapse" id="adminRiskyActions">
-    <div class="card-body">
-      <div class="d-flex flex-wrap gap-2">
-        <form action="{{ url_for('main.clean_data') }}" method="post" class="d-inline" onsubmit="return confirm('¿Seguro que deseas limpiar los datos del año anterior?');">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="active_tab" value="productos">
-          <button type="submit" class="btn btn-danger">Limpiar datos del año anterior</button>
-        </form>
-        {% if test_mode_enabled %}
-          <form action="{{ url_for('main.toggle_test_mode') }}" method="post" class="d-inline" onsubmit="return confirm('Al desactivar el modo de pruebas se borrarán los votos y pedidos actuales. ¿Deseas continuar?');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="active_tab" value="productos">
-            <input type="hidden" name="enable" value="0">
-            <button type="submit" class="btn btn-outline-warning">Desactivar modo de pruebas</button>
-          </form>
-        {% else %}
-          <form action="{{ url_for('main.toggle_test_mode') }}" method="post" class="d-inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="active_tab" value="productos">
-            <input type="hidden" name="enable" value="1">
-            <button type="submit" class="btn btn-outline-warning">Activar modo de pruebas</button>
-          </form>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-</div>
-<div class="card mb-3">
-  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-    <button class="btn btn-link text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#phaseBackupsCollapse" aria-expanded="false" aria-controls="phaseBackupsCollapse">
-      <strong>Copias de seguridad por fases</strong>
-    </button>
-    <small class="text-muted">Restaurar fuerza la fase indicada en el manifest.</small>
-  </div>
-  <div class="collapse" id="phaseBackupsCollapse">
-    <div class="card-body">
-    <p class="mb-3">
-      Último backup:
-      {% if last_backup.file %}
-        <strong>{{ last_backup.phase or "?" }} → {{ last_backup.target_phase or "?" }}</strong>
-        {% if last_backup.created_at %}- {{ last_backup.created_at }}{% endif %}
-      {% else %}
-        <span class="text-muted">Sin copias registradas.</span>
-      {% endif %}
-    </p>
-    <div class="d-flex flex-wrap gap-2 mb-3">
-      <form action="{{ url_for('main.create_backup') }}" method="post" class="d-inline">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="phase_at_backup" value="{{ last_backup.phase or current_phase }}">
-        <input type="hidden" name="target_phase" value="{{ last_backup.target_phase or current_phase }}">
-        <button type="submit" class="btn btn-outline-primary">Crear backup manual</button>
-      </form>
-      {% if last_backup.file %}
-        <a class="btn btn-outline-secondary" href="{{ url_for('main.download_backup') }}">Descargar último backup</a>
-      {% endif %}
-      {% if last_backup.error_log %}
-        <a class="btn btn-outline-danger" href="{{ url_for('main.download_backup_log') }}">Descargar log de error</a>
-      {% endif %}
-    </div>
-    <div class="alert alert-info mb-0">
-      <strong>Restauracion segura:</strong> por seguridad no se restaura una base SQLite mientras hay usuarios conectados.
-      Descarga el backup y ejecuta <code>sh scripts/restore_offline.sh RUTA_DEL_BACKUP.zip</code>
-      en el servidor, con Docker disponible. El script detiene la aplicacion, valida los datos y conserva
-      la copia anterior para recuperacion. No borres el directorio <code>data/</code>.
-    </div>
-    </div>
-  </div>
-</div>
+{% include "_admin_control.html" %}
 {% if test_mode_enabled %}
   <div class="alert alert-info">
     <strong>Modo de pruebas activo.</strong> Límite fase 1: {{ active_limits.max_refs_phase_one }} referencias y {{ "%.2f"|format(active_limits.phase_one_order_limit) }} €. Límite fase 2: {{ active_limits.max_refs_phase_two }} referencias totales. Selección final: {{ active_limits.final_selection_limit }} referencias más votadas. Las referencias promovidas desde este panel se siguen respetando.
@@ -147,7 +9,7 @@
 {% endif %}
 
 {% if current_phase in ['final', 'order'] or order_generated_at %}
-  <div class="card mb-3">
+  <div class="card mb-3" id="pedido-final">
     <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
       <span><strong>{{ _('ui.final_order') }}</strong></span>
       {% if order_generated_at %}

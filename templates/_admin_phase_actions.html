@@ -1,0 +1,22 @@
+{# Pública: transiciones de fase disponibles. #}
+{% if not order_finalized %}
+  {% if current_phase == 'first' %}
+    <form action="{{ url_for('main.activate_phase2') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="active_tab" value="productos">
+      <button type="submit" class="btn btn-primary">{{ _('ui.activate_phase2') }}</button>
+    </form>
+  {% elif current_phase == 'second' %}
+    <form action="{{ url_for('main.advance_phase') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="active_tab" value="productos">
+      <button type="submit" class="btn btn-primary">{{ _('ui.final_phase') }}</button>
+    </form>
+  {% elif current_phase == 'final' %}
+    <form action="{{ url_for('main.advance_order_phase') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="active_tab" value="ranking">
+      <button type="submit" class="btn btn-primary">{{ _('ui.release_order') }}</button>
+    </form>
+  {% endif %}
+{% endif %}

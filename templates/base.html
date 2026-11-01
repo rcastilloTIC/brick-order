@@ -9,7 +9,7 @@
   {% set is_admin_page = request.endpoint and (request.endpoint.startswith('main.admin') or request.endpoint in ['main.commitment_management','main.audit_dashboard','main.campaign_history','main.manage_limits']) %}
   <title>{% block title %}{{ _('app.title', env_prefix='DEV ' if is_dev else '') }}{% endblock %} · VALBRICK</title>
   <meta name="theme-color" content="#111825">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/bom-theme.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/valbrick-v2.css') }}">
@@ -17,9 +17,10 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/valbrick-v78.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/valbrick-insights.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/valbrick-simulator.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/valbrick-control.css') }}">
   <script src="{{ url_for('static', filename='js/valbrick-appearance.js') }}"></script>
 </head>
-<body class="bom-app{% if is_access_page or is_login_page %} bom-auth-page{% endif %}">
+<body class="bom-app{% if is_access_page or is_login_page %} bom-auth-page{% endif %}" data-vb-edition="{{ valbrick_edition|lower }}">
   {% if not is_access_page %}
   <a class="bom-skip-link" href="#main-content">{{ _('ui.skip') }}</a>
   <nav class="navbar navbar-expand-lg bom-topbar" aria-label="Navegación principal">
@@ -64,7 +65,7 @@
               {% if not current_user.is_admin %}<li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">{{ _('ui.profile') }}</a></li>{% endif %}
               {% if current_user.is_admin %}<li><a class="dropdown-item" href="{{ url_for('main.admin_dashboard') }}">{{ _('ui.admin') }}</a></li>{% endif %}
               <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">{{ _('ui.logout') }}</a></li>
+              <li><form method="post" action="{{ url_for('auth.logout') }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="dropdown-item">{{ _('ui.logout') }}</button></form></li>
             </ul>
           </div>
           {% elif not is_login_page %}
@@ -78,20 +79,30 @@
   {% if current_user.is_authenticated and not is_access_page and not is_login_page %}
   <div class="vb-workspace">
     <aside class="vb-sidebar" aria-label="Navegación de la aplicación">
-      <div class="vb-sidebar-group-title">{{ _('ui.main_menu') }}</div>
-      <a class="vb-sidebar-link{% if request.endpoint == 'main.order_insights' %} is-active{% endif %}" href="{{ url_for('main.order_insights') }}"><span class="vb-nav-icon" aria-hidden="true">▥</span>{{ _('insights.title') }}</a>
-      {% if current_user.is_admin %}<a class="vb-sidebar-link{% if request.endpoint == 'main.demo_simulator' %} is-active{% endif %}" href="{{ url_for('main.demo_simulator') }}"><span class="vb-nav-icon" aria-hidden="true">◈</span>{{ _('sim.menu') }}</a>{% endif %}
-      {% if current_user.is_admin %}<a class="vb-sidebar-link" href="{{ url_for('main.shortage_admin') }}">Pedido insuficiente</a>{% endif %}
-      <a class="vb-sidebar-link{% if request.endpoint == 'main.user_dashboard' %} is-active{% endif %}" href="{{ url_for('main.user_dashboard') }}"><span class="vb-nav-icon" aria-hidden="true">⌂</span>{{ _('ui.panel') }}</a>
       {% if current_user.is_admin %}
-      <a class="vb-sidebar-link{% if request.endpoint == 'main.admin_dashboard' %} is-active{% endif %}" href="{{ url_for('main.admin_dashboard') }}"><span class="vb-nav-icon" aria-hidden="true">▦</span>{{ _('ui.admin') }}</a>
+      <div class="vb-sidebar-group-title">Campaña</div>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.admin_dashboard' %} is-active{% endif %}" href="{{ url_for('main.admin_dashboard') }}"><span class="vb-nav-icon" aria-hidden="true">▦</span>Cuadro de mando</a>
+      <a class="vb-sidebar-link" href="{{ url_for('main.admin_dashboard') }}#productos"><span class="vb-nav-icon" aria-hidden="true">▤</span>Catálogo</a>
+      <a class="vb-sidebar-link" href="{{ url_for('main.admin_dashboard') }}#ranking"><span class="vb-nav-icon" aria-hidden="true">≡</span>Ranking y selección</a>
+      <a class="vb-sidebar-link" href="{{ url_for('main.admin_dashboard') }}#usuarios"><span class="vb-nav-icon" aria-hidden="true">◍</span>Participantes</a>
       <a class="vb-sidebar-link{% if request.endpoint == 'main.commitment_management' %} is-active{% endif %}" href="{{ url_for('main.commitment_management') }}"><span class="vb-nav-icon" aria-hidden="true">◷</span>{{ _('ui.commitments') }}</a>
-      <a class="vb-sidebar-link{% if request.endpoint == 'main.audit_dashboard' %} is-active{% endif %}" href="{{ url_for('main.audit_dashboard') }}"><span class="vb-nav-icon" aria-hidden="true">▤</span>{{ _('ui.audit') }}</a>
+      <a class="vb-sidebar-link" href="{{ url_for('main.admin_dashboard') }}#pedidos"><span class="vb-nav-icon" aria-hidden="true">▣</span>Pedidos y exportación</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.shortage_admin' %} is-active{% endif %}" href="{{ url_for('main.shortage_admin') }}"><span class="vb-nav-icon" aria-hidden="true">◔</span>Pedido insuficiente</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.order_insights' %} is-active{% endif %}" href="{{ url_for('main.order_insights') }}"><span class="vb-nav-icon" aria-hidden="true">▥</span>Estadísticas</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.user_dashboard' %} is-active{% endif %}" href="{{ url_for('main.user_dashboard') }}"><span class="vb-nav-icon" aria-hidden="true">⌂</span>{{ _('ui.user_view') }}</a>
+      <div class="vb-sidebar-group-title">Sistema</div>
+      <a class="vb-sidebar-link" href="{{ url_for('main.admin_dashboard') }}#sistema"><span class="vb-nav-icon" aria-hidden="true">⛁</span>Copias y modo de pruebas</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.audit_dashboard' %} is-active{% endif %}" href="{{ url_for('main.audit_dashboard') }}"><span class="vb-nav-icon" aria-hidden="true">✓</span>{{ _('ui.audit') }}</a>
       <a class="vb-sidebar-link{% if request.endpoint == 'main.campaign_history' %} is-active{% endif %}" href="{{ url_for('main.campaign_history') }}"><span class="vb-nav-icon" aria-hidden="true">◴</span>{{ _('ui.history') }}</a>
       <a class="vb-sidebar-link{% if request.endpoint == 'main.manage_limits' %} is-active{% endif %}" href="{{ url_for('main.manage_limits') }}"><span class="vb-nav-icon" aria-hidden="true">◇</span>{{ _('ui.limits') }}</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.demo_simulator' %} is-active{% endif %}" href="{{ url_for('main.demo_simulator') }}"><span class="vb-nav-icon" aria-hidden="true">◈</span>{{ _('sim.menu') }}</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'translations_admin.index' %} is-active{% endif %}" href="{{ url_for('translations_admin.index') }}"><span class="vb-nav-icon" aria-hidden="true">文</span>{{ _('ui.manage_translations') }}</a>
+      {% else %}
+      <div class="vb-sidebar-group-title">{{ _('ui.main_menu') }}</div>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.user_dashboard' %} is-active{% endif %}" href="{{ url_for('main.user_dashboard') }}"><span class="vb-nav-icon" aria-hidden="true">⌂</span>{{ _('ui.panel') }}</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.order_insights' %} is-active{% endif %}" href="{{ url_for('main.order_insights') }}"><span class="vb-nav-icon" aria-hidden="true">▥</span>{{ _('insights.title') }}</a>
       {% endif %}
-      {% if current_user.is_admin %}<a class="vb-sidebar-link{% if request.endpoint == 'translations_admin.index' %} is-active{% endif %}" href="{{ url_for('translations_admin.index') }}"><span class="vb-nav-icon" aria-hidden="true">文</span>{{ _('ui.manage_translations') }}</a>{% endif %}
-      <div class="vb-sidebar-bottom">VALBRICK <small>{{ _('ui.collective') }}</small></div>
+      <div class="vb-sidebar-bottom">VALBRICK <small>{{ _('ui.collective') }}</small><span class="vbc-edition-tag">{{ 'Pública' if valbrick_edition == 'PUBLICA' else 'Extended' }}</span></div>
     </aside>
     <div class="vb-workspace-main">
   {% endif %}
@@ -118,6 +129,6 @@
     · <a href="{{ source_code_url }}" rel="noopener noreferrer" target="_blank">Código fuente (AGPLv3)</a>
     {% endif %}
   </footer>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
 </body>
 </html>

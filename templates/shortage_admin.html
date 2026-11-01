@@ -5,6 +5,16 @@
 <p>Importe del pedido: <strong>{{ '%.2f'|format(total) }} EUR</strong> · Minimo configurado: <strong>{{ '%.2f'|format(minimum) }} EUR</strong> · Faltan {{ '%.2f'|format(missing) }} EUR.</p>
 {% if window %}
 <div class="alert alert-info">Estado: <strong>{{ window.status }}</strong> · Apertura: {{ window.opened_at }} · Vencimiento: {{ window.deadline_at or '-' }} · Motivo: {{ window.closing_reason or '-' }}</div>
+{% if window.status == 'cancelled' %}
+<div class="card border-danger mb-3"><div class="card-body">
+<h2 class="h5">Cerrar la campaña cancelada</h2>
+<p>El pedido se canceló por insuficiencia. Mientras la campaña siga activa no se puede modificar nada ni preparar el año siguiente. Al cerrarla se conservan votos, pedidos y documentos como histórico. Crea antes una copia de seguridad.</p>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="close_campaign">
+<label for="close-confirm">Escribe <strong>CERRAR {{ campaign_year }}</strong> para confirmar</label>
+<input id="close-confirm" name="confirm" required autocomplete="off" class="form-control my-2" style="max-width: 18rem">
+<button class="btn btn-danger">Cerrar campaña {{ campaign_year }}</button></form>
+</div></div>
+{% endif %}
 {% if window.status == 'open' %}
 <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="check"><button class="btn btn-outline-primary">Revisar cumplimiento ahora</button></form>
 {% endif %}

@@ -10,7 +10,7 @@
   <h1>Listado de Productos</h1>
 
   <nav>
-    <a href="{{ url_for('auth.logout') }}">Cerrar sesión</a>
+    <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-link p-0">Cerrar sesión</button></form>
     {% if current_user.is_authenticated and current_user.is_admin %}
       | <a href="{{ url_for('orders.list_orders') }}">Pedidos</a>
     {% endif %}

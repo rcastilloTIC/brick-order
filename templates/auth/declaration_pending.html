@@ -6,7 +6,7 @@
     <h2 class="mb-4">Declaración jurada recibida</h2>
     <p class="lead">Un administrador revisará tu documento y te notificaremos cuando esté validado.</p>
     <p>Mientras tanto no podrás acceder al catálogo. Gracias por tu paciencia.</p>
-    <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary mt-3">Cerrar sesión</a>
+    <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-secondary mt-3">Cerrar sesión</button></form>
   </div>
 </div>
 {% endblock %}

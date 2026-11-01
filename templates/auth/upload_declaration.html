@@ -18,7 +18,7 @@
         <input type="file" class="form-control" id="declaration_pdf" name="declaration_pdf" accept="application/pdf" required>
       </div>
       <button type="submit" class="btn btn-primary">Subir archivo</button>
-      <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Cerrar sesión</a>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-secondary">Cerrar sesión</button></form>
     </form>
   </div>
 </div>
