@@ -20,6 +20,10 @@ from app.services.campaign_data import active_campaign_id
 
 auth_bp = Blueprint('auth', __name__)
 
+# Compared against when the username does not exist (constant-time behaviour).
+from werkzeug.security import generate_password_hash as _gph
+_DUMMY_HASH = _gph('valbrick-timing-equaliser-not-a-real-password')
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit(lambda: current_app.config.get('LOGIN_RATE_LIMIT', '30 per minute'))
 def login():
@@ -31,17 +35,16 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         user = User.query.filter_by(username=username).first()
-
-        if not user:
+        # Always verify a hash (a dummy one for unknown users) so the response
+        # time does not reveal which usernames exist, and only disclose the
+        # "inactive" state to someone who knows the correct password.
+        password_ok = check_password_hash(user.password_hash if user else _DUMMY_HASH, password)
+        if not user or not password_ok:
             flash('Usuario o contraseña incorrectos', 'danger')
             return redirect(url_for('auth.login'))
 
         if not user.active:
             flash('Usuario desactivado, contacta con el administrador.', 'warning')
-            return redirect(url_for('auth.login'))
-
-        if not check_password_hash(user.password_hash, password):
-            flash('Usuario o contraseña incorrectos', 'danger')
             return redirect(url_for('auth.login'))
 
         remember_me = bool(request.form.get('remember'))
@@ -79,9 +82,10 @@ def site_access():
     return render_template('auth/site_access.html')
 
 
-@auth_bp.route('/logout')
+@auth_bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
+    # POST + CSRF token: a third-party page can no longer log users out.
     logout_user()
     session.pop('site_access_granted', None)
     flash('Sesión cerrada correctamente', 'info')
@@ -131,6 +135,10 @@ def profile():
             return redirect(url_for('auth.profile'))
 
         if new_password:
+            current_password = request.form.get('current_password', '')
+            if not current_user.check_password(current_password):
+                flash('La contraseña actual no es correcta.', 'danger')
+                return redirect(url_for('auth.profile'))
             if new_password != confirm_password:
                 flash('Las contraseñas no coinciden.', 'warning')
                 return redirect(url_for('auth.profile'))

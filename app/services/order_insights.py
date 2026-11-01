@@ -1,6 +1,7 @@
 """Read-only campaign-scoped analytics. Votes are commitments, not paid orders."""
 from decimal import Decimal, InvalidOperation
-from datetime import datetime, timedelta
+from datetime import timedelta
+from app.time_utils import utc_now
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func
 from app import db
@@ -138,7 +139,7 @@ def capture_snapshot(campaign_id, insights, *, now=None, minimum_minutes=30):
 
     Same-minute changes are captured on next eligible observation (or CLI with 0).
     """
-    now = now or datetime.utcnow()
+    now = now or utc_now()
     latest = (CampaignInsightSnapshot.query.filter_by(campaign_id=campaign_id)
               .order_by(CampaignInsightSnapshot.recorded_at.desc(), CampaignInsightSnapshot.id.desc()).first())
     current = (round(insights['votes']['amount'] * 100),

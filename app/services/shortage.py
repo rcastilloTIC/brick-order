@@ -3,7 +3,8 @@
 A shortage is measured from stored orders, NOT raw voting totals. This workflow is
 kept out of Extended, which retains its private extension system.
 """
-from datetime import datetime, timedelta
+from datetime import timedelta
+from app.time_utils import utc_now
 from decimal import Decimal
 from sqlalchemy import func
 from app import db
@@ -55,7 +56,7 @@ def window_for_active():
 
 
 def open_window(actor_id, days, now=None):
-    now = now or datetime.utcnow()
+    now = now or utc_now()
     if isinstance(days, bool) or not isinstance(days, int) or not 1 <= days <= 30:
         raise ValueError('El plazo debe ser de 1 a 30 dias')
     campaign = current_campaign()
@@ -76,14 +77,14 @@ def open_window(actor_id, days, now=None):
 def acknowledge(user_id, now=None):
     row = window_for_active()
     campaign = current_campaign()
-    if row is None or row.status != 'open' or (row.deadline_at and (now or datetime.utcnow()) >= row.deadline_at):
+    if row is None or row.status != 'open' or (row.deadline_at and (now or utc_now()) >= row.deadline_at):
         raise ValueError('No hay aviso activo')
     membership = CampaignParticipation.query.filter_by(campaign_id=campaign.id,user_id=user_id).one_or_none()
     if membership is None or membership.status != 'approved' or not membership.signed_document:
         raise ValueError('No participa en la campana')
     existing = ShortageAcknowledgement.query.filter_by(window_id=row.id,user_id=user_id).first()
     if existing:return existing
-    accepted = ShortageAcknowledgement(window_id=row.id,user_id=user_id,accepted_at=now or datetime.utcnow())
+    accepted = ShortageAcknowledgement(window_id=row.id,user_id=user_id,accepted_at=now or utc_now())
     db.session.add(accepted)
     db.session.commit()
     return accepted
@@ -91,7 +92,7 @@ def acknowledge(user_id, now=None):
 
 def reconcile(now=None):
     """Idempotent worker. A reached minimum wins even at the deadline."""
-    now = now or datetime.utcnow()
+    now = now or utc_now()
     row = window_for_active()
     if row is None or row.status != 'open':return None
     total = order_total(row.campaign_id)
@@ -117,12 +118,38 @@ def cancel(actor_id, now=None):
     if row is None:
         if order_total(campaign.id) >= minimum_total():
             raise ValueError('No se permite cancelar por insuficiencia un pedido que cumple el minimo')
-        row = ShortageWindow(campaign_id=campaign.id,opened_by=actor_id,opened_at=now or datetime.utcnow())
+        row = ShortageWindow(campaign_id=campaign.id,opened_by=actor_id,opened_at=now or utc_now())
         db.session.add(row)
-    row.status='cancelled';row.closing_reason='admin_cancelled';row.resolved_at=now or datetime.utcnow()
+    row.status='cancelled';row.closing_reason='admin_cancelled';row.resolved_at=now or utc_now()
     db.session.add(ActionLog(user_id=actor_id,action='shortage_close',detail=f'campaign={campaign.id};status=cancelled'))
     db.session.commit()
     return row
+
+
+def close_cancelled_campaign(actor_id, confirm_text, now=None):
+    """Close the operational year after a cancellation for insufficient order.
+
+    A cancelled shortage window blocks every mutation of the campaign, so the
+    year could never be archived (no final export exists) and no next-year
+    draft could be created.  This transition marks it 'closed' (a status the
+    schema and registry already accept) without deleting votes, orders or
+    documents; the historical rows stay intact.  It requires the exact typed
+    confirmation "CERRAR <year>".
+    """
+    campaign = current_campaign()
+    if campaign is None:
+        raise ValueError('No hay campaña activa')
+    row = window_for_active()
+    if row is None or row.status != 'cancelled':
+        raise ValueError('Solo se puede cerrar una campaña cuyo pedido se canceló por insuficiencia')
+    if (confirm_text or '').strip() != f'CERRAR {campaign.year}':
+        raise ValueError(f'Escribe exactamente CERRAR {campaign.year} para confirmar')
+    campaign.status = 'closed'
+    campaign.archived_at = now or utc_now()
+    db.session.add(ActionLog(user_id=actor_id, action='campaign_closed',
+                             detail=f'campaign={campaign.id};reason=shortage_cancelled'))
+    db.session.commit()
+    return campaign
 
 
 def selected_products_for_extension(campaign_id):
@@ -139,7 +166,7 @@ def _add_extra_order_locked(user_id, product_id, quantity, now=None):
     from app.models import UserVote, Config
     from app.services.commitment_ledger import effective_commitment, materialized_order_quantity
     from app.services.quantity_rules import validate_quantity
-    now = now or datetime.utcnow()
+    now = now or utc_now()
     # Serialize competing read-check-write transactions across Gunicorn workers.
     # This app uses SQLite; BEGIN IMMEDIATE takes a RESERVED write lock before
     # reading the financial ledger. SQLite waits for the competing transaction

@@ -21,7 +21,9 @@ _TEST_MODE_LIMITS = {
 
 def is_test_mode_enabled() -> bool:
     """Return True when the admin has enabled the test mode."""
-    return (Config.get(TEST_MODE_KEY) or "").lower() in {"1", "true", "yes", "on"}
+    # Annual setting: a test mode enabled for one campaign never leaks into
+    # another year (legacy global key is read only for single-campaign DBs).
+    return (get_annual_setting(TEST_MODE_KEY) or "").lower() in {"1", "true", "yes", "on"}
 
 
 def get_limit_configuration(*, test_mode: bool | None = None) -> Dict[str, float | int]:

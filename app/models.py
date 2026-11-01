@@ -1,6 +1,6 @@
 # app/models.py
 
-from datetime import datetime
+from app.time_utils import utc_now
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from . import db
@@ -67,7 +67,7 @@ class Order(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=utc_now)
     user = db.relationship('User', back_populates='orders')
     product = db.relationship('Product', back_populates='orders')
 
@@ -78,7 +78,7 @@ class ActionLog(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     action = db.Column(db.String(40), nullable=False)
     detail = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
     user = db.relationship('User', back_populates='action_logs')
 
 
@@ -116,7 +116,7 @@ class UserFavorite(db.Model):
     campaign_id = db.Column(db.Integer, db.ForeignKey('campaign.id'), index=True, nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
     user = db.relationship('User', back_populates='favorites')
     product = db.relationship('Product', back_populates='favorites')
 
@@ -170,7 +170,7 @@ class CampaignParticipation(db.Model):
     signed_document = db.Column(db.String(255), nullable=True)
     document_approved_at = db.Column(db.DateTime, nullable=True)
     document_approved_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    enrolled_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    enrolled_at = db.Column(db.DateTime, nullable=False, default=utc_now)
     user = db.relationship('User', foreign_keys=[user_id], backref='campaign_participations')
     campaign = db.relationship('Campaign', backref='participations')
 
@@ -188,7 +188,7 @@ class Campaign(db.Model):
     year = db.Column(db.Integer, unique=True, nullable=False)
     title = db.Column(db.String(120), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='legacy_active')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
     archived_at = db.Column(db.DateTime, nullable=True)
 
 
@@ -227,7 +227,7 @@ class CampaignInsightSnapshot(db.Model):
     __tablename__ = 'campaign_insight_snapshot'
     id = db.Column(db.Integer, primary_key=True)
     campaign_id = db.Column(db.Integer, db.ForeignKey('campaign.id'), nullable=False, index=True)
-    recorded_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    recorded_at = db.Column(db.DateTime, nullable=False, default=utc_now, index=True)
     vote_cents = db.Column(db.Integer, nullable=False)
     order_cents = db.Column(db.Integer, nullable=False)
     vote_units = db.Column(db.Integer, nullable=False)
@@ -242,7 +242,7 @@ class ShortageWindow(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     campaign_id = db.Column(db.Integer, db.ForeignKey('campaign.id'), nullable=False, unique=True, index=True)
     status = db.Column(db.String(24), nullable=False)  # open, reached, cancelled
-    opened_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    opened_at = db.Column(db.DateTime, nullable=False, default=utc_now)
     deadline_at = db.Column(db.DateTime, nullable=True)
     resolved_at = db.Column(db.DateTime, nullable=True)
     opened_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -255,4 +255,4 @@ class ShortageAcknowledgement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     window_id = db.Column(db.Integer, db.ForeignKey('shortage_window.id'), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    accepted_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    accepted_at = db.Column(db.DateTime, nullable=False, default=utc_now)

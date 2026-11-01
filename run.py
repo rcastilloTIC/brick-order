@@ -2,11 +2,11 @@ import os
 
 from dotenv import load_dotenv
 
-from app import create_app, init_db
-from config import DevelopmentConfig, ProductionConfig
-
-# Load environment variables from .env
+# Load .env BEFORE importing config: config.py validates secrets at import time.
 load_dotenv()
+
+from app import create_app, init_db  # noqa: E402
+from config import DevelopmentConfig, ProductionConfig  # noqa: E402
 
 # Determine configuration
 env = os.getenv('FLASK_ENV', 'production').strip().lower()

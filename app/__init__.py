@@ -146,8 +146,12 @@ def create_app(config_class=None):
                 from flask import abort
                 abort(403, description='You are not enrolled in the active campaign.')
             if membership.status != 'approved' or not membership.signed_document:
+                # change_password is required here: newly imported participants must
+                # change their provisional password BEFORE uploading the document, and
+                # upload_declaration sends them back to change_password (onboarding loop).
                 document_routes = {'auth.upload_declaration', 'auth.download_commitment',
-                                   'auth.declaration_pending', 'auth.logout', 'static'}
+                                   'auth.declaration_pending', 'auth.change_password',
+                                   'auth.logout', 'static'}
                 if endpoint not in document_routes:
                     target = ('auth.declaration_pending' if membership.signed_document
                               else 'auth.upload_declaration')
@@ -173,16 +177,42 @@ def create_app(config_class=None):
             return
         if not current_user.is_authenticated:
             return
-        if request.endpoint in {'auth.logout','main.shortage_admin'}:
+        # Backups and the shortage page (which offers the controlled closure
+        # of a cancelled year) must stay usable; everything else is frozen.
+        if request.endpoint in {'auth.logout', 'auth.change_password',
+                                'main.shortage_admin', 'main.create_backup'}:
             return
         from app.services.shortage import window_for_active
         row=window_for_active()
         if row and row.status=='cancelled':
             abort(409, description='El pedido ha sido cancelado.')
 
+    @app.after_request
+    def set_security_headers(response):
+        """Baseline browser protections (clickjacking, MIME sniffing, referrer)."""
+        headers = response.headers
+        headers.setdefault('X-Content-Type-Options', 'nosniff')
+        headers.setdefault('X-Frame-Options', 'DENY')
+        headers.setdefault('Referrer-Policy', 'same-origin')
+        headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+        # Restrictive directives that do not interfere with the inline UI code.
+        headers.setdefault('Content-Security-Policy',
+                           "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
+        if request.is_secure and app.config.get('SESSION_COOKIE_SECURE'):
+            headers.setdefault('Strict-Transport-Security', 'max-age=31536000')
+        return response
+
+    edition_file = os.path.join(os.path.dirname(base_dir), 'EDITION')
+    try:
+        with open(edition_file, encoding='utf-8') as handle:
+            valbrick_edition = handle.read().strip().upper()
+    except OSError:
+        valbrick_edition = ''
+
     @app.context_processor
     def inject_app_env():
         return {
+            "valbrick_edition": valbrick_edition,
             "app_env": app.config.get("APP_ENV", "production"),
             "source_code_url": app.config.get("SOURCE_CODE_URL", ""),
         }

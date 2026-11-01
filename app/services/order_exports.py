@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import tempfile
 from datetime import datetime
+from app.time_utils import utc_now
 from decimal import Decimal
 import base64
 import zipfile
@@ -206,7 +207,7 @@ def generate_order_files(
 
     folder = current_app.config["ORDER_EXPORT_FOLDER"]
     os.makedirs(folder, exist_ok=True)
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = utc_now().strftime("%Y%m%d_%H%M%S")
 
     excel_name = f"pedido_total_{timestamp}.xlsx"
     piece_pdf_name = f"pedido_por_pieza_imprimir_{timestamp}.pdf"
@@ -337,9 +338,12 @@ def _write_piece_zip(path: str, combined_pdf_name: str, summary: Dict[str, objec
             combined_pdf_path = os.path.join(current_app.config["ORDER_EXPORT_FOLDER"], combined_pdf_name)
             with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                 archive.write(combined_pdf_path, arcname=combined_pdf_name)
+                used_piece_names = {combined_pdf_name}
                 for entry in summary["products"]:
                     product: Product = entry["product"]
-                    filename = f"{_safe_filename_part(product.reference or 'sin_referencia')}_{_safe_filename_part(product.name or 'pieza')}.pdf"
+                    filename = _unique_arcname(
+                        f"{_safe_filename_part(product.reference or 'sin_referencia')}_{_safe_filename_part(product.name or 'pieza')}.pdf",
+                        used_piece_names, product.id)
                     item_path = os.path.join(temp_dir, filename)
                     _write_single_piece_pdf(item_path, entry, temp_files, image_cache)
                     archive.write(item_path, arcname=filename)
@@ -367,10 +371,14 @@ def _write_user_zip(
             combined_pdf_path = os.path.join(current_app.config["ORDER_EXPORT_FOLDER"], combined_pdf_name)
             with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                 archive.write(combined_pdf_path, arcname=combined_pdf_name)
+                used_names = {combined_pdf_name}
                 for participant in sorted(
                     summary["participants"].values(), key=lambda entry: entry["display_name"]
                 ):
-                    filename = f"{_safe_filename_part(participant['username'])}.pdf"
+                    filename = participant_pdf_name(participant["user_id"], participant["username"])
+                    if filename in used_names:
+                        raise ValueError(f"PDF de participante duplicado: {filename}")
+                    used_names.add(filename)
                     user_path = os.path.join(temp_dir, filename)
                     _write_single_user_pdf(
                         user_path,
@@ -590,6 +598,41 @@ def _truncate_text(pdf: FPDF, text: str, max_width: float) -> str:
     while trimmed and pdf.get_string_width(trimmed) > available:
         trimmed = trimmed[:-1]
     return f"{trimmed}{ellipsis}"
+
+
+PARTICIPANT_PDF_PREFIX = "usuario_"
+
+
+def participant_pdf_name(user_id: int, username: str | None) -> str:
+    """Entry name of one participant's PDF inside the per-user ZIP.
+
+    The numeric id makes the name unique: sanitised usernames can collide
+    ("ana.garcia" and "ana_garcia"), which previously let one participant
+    download another participant's order.  The username is only a readable
+    suffix for administrators and is never used for lookup.
+    """
+    return f"{PARTICIPANT_PDF_PREFIX}{int(user_id)}_{_safe_filename_part(username or '')}.pdf"
+
+
+def find_participant_pdf(names: List[str], user_id: int) -> Optional[str]:
+    """Return the single ZIP entry for this user id, or None (fail closed)."""
+    prefix = f"{PARTICIPANT_PDF_PREFIX}{int(user_id)}_"
+    matches = [n for n in names
+               if n.startswith(prefix) and n.lower().endswith(".pdf") and "/" not in n and "\\" not in n]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _unique_arcname(filename: str, used: set, discriminator: object) -> str:
+    """Never write two ZIP entries with the same name (readers return only one)."""
+    if filename not in used:
+        used.add(filename)
+        return filename
+    stem, dot, ext = filename.rpartition(".")
+    candidate = f"{stem}_{discriminator}.{ext}" if dot else f"{filename}_{discriminator}"
+    if candidate in used:
+        raise ValueError(f"Nombre duplicado en el ZIP de exportación: {filename}")
+    used.add(candidate)
+    return candidate
 
 
 def _safe_filename_part(value: str) -> str:

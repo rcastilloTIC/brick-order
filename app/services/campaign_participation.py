@@ -3,7 +3,7 @@
 Important: these methods are not a replacement for campaign-scoping votes,
 orders and products. New-year activation remains disabled until that migration.
 """
-from datetime import datetime
+from app.time_utils import utc_now
 
 from sqlalchemy.exc import IntegrityError
 
@@ -77,7 +77,7 @@ def review_signed_document(entry, admin: User, approve: bool):
     if entry.status != 'pending_review' or not entry.signed_document:
         raise ValueError('No pending document')
     entry.status = 'approved' if approve else 'rejected'
-    entry.document_approved_at = datetime.utcnow() if approve else None
+    entry.document_approved_at = utc_now() if approve else None
     entry.document_approved_by = admin.id
 
 

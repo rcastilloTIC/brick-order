@@ -15,6 +15,7 @@ ANNUAL_KEYS = frozenset({
     "voting_start", "voting_end", "second_phase_date",
     "order_deadline",
     "commitment_pdf",
+    "test_mode",
 })
 
 

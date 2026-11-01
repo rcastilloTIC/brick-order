@@ -10,7 +10,7 @@ import sqlite3
 import tempfile
 import traceback
 import zipfile
-from datetime import datetime
+from app.time_utils import utc_now
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -117,7 +117,7 @@ def create_phase_backup(*, phase_at_backup: str, target_phase: str) -> str:
         raise BackupError("BACKUP_FOLDER no está configurado.")
     os.makedirs(backup_dir, exist_ok=True)
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    timestamp = utc_now().strftime("%Y%m%d%H%M%S")
     archive_name = f"backup_{phase_at_backup}_to_{target_phase}_{timestamp}.zip"
     archive_path = os.path.join(backup_dir, archive_name)
 
@@ -134,7 +134,7 @@ def create_phase_backup(*, phase_at_backup: str, target_phase: str) -> str:
 
         manifest: Dict[str, str | Dict[str, str]] = {
             "version": 1,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": utc_now().isoformat(),
             "phase_at_backup": phase_at_backup,
             "target_phase": target_phase,
             "db_filename": os.path.basename(db_dest),
@@ -193,7 +193,7 @@ def restore_backup(zip_path: str) -> Dict[str, str]:
         _copy_optional_folder(exports_src, current_app.config.get("ORDER_EXPORT_FOLDER"))
 
         set_campaign_phase(target_phase)
-        Config.set("last_backup_restored_at", datetime.utcnow().isoformat())
+        Config.set("last_backup_restored_at", utc_now().isoformat())
         Config.set("last_backup_restored_from", os.path.abspath(zip_path))
         Config.set("last_backup_error_log", "")
 
@@ -206,10 +206,10 @@ def write_backup_error_log(exc: Exception) -> str:
     """Persist an error log and return its path."""
     backup_dir = current_app.config.get("BACKUP_FOLDER") or "."
     os.makedirs(backup_dir, exist_ok=True)
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    timestamp = utc_now().strftime("%Y%m%d%H%M%S")
     log_path = os.path.join(backup_dir, f"backup_error_{timestamp}.log")
     with open(log_path, "w", encoding="utf-8") as fh:
-        fh.write(f"{datetime.utcnow().isoformat()} UTC\n")
+        fh.write(f"{utc_now().isoformat()} UTC\n")
         fh.write("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
     Config.set("last_backup_error_log", log_path)
     return log_path

@@ -7,9 +7,9 @@ import io
 import os
 import re
 import tempfile
-import threading
 import zipfile
 from datetime import date, datetime
+from app.time_utils import utc_now
 from typing import Dict, Tuple, List, Set
 
 from flask import (
@@ -499,13 +499,15 @@ def download_user_order_pdf():
     if zip_path is None:
         abort(404)
 
-    archive_name = f"{_safe_archive_name(current_user.username)}.pdf"
+    from app.services.order_exports import find_participant_pdf
     try:
         with zipfile.ZipFile(zip_path, "r") as archive:
-            try:
-                data = archive.read(archive_name)
-            except KeyError:
+            # Look up by numeric user id. Never by sanitised username: two
+            # usernames may sanitise to the same entry name (privacy leak).
+            archive_name = find_participant_pdf(archive.namelist(), current_user.id)
+            if archive_name is None:
                 abort(404)
+            data = archive.read(archive_name)
     except zipfile.BadZipFile:
         abort(404)
 
@@ -777,6 +779,42 @@ def admin_dashboard():
         "error_log": Config.get("last_backup_error_log") or "",
     }
 
+    # ---- Control room (proposal A): read-only overview for this edition ----
+    from app.services.admin_overview import BASE_STEPS, build_admin_overview
+    materialized = None
+    if phase in {"order"} and not order_finalized:
+        from app.services.order_materialization import assert_selected_commitments_materialized
+        try:
+            assert_selected_commitments_materialized()
+            materialized = True
+        except Exception:  # noqa: BLE001 - informative only, never blocks rendering
+            db.session.rollback()
+            materialized = False
+    from app.models import ShortageAcknowledgement
+    from app.services import shortage as shortage_service
+    shortage_window = shortage_service.window_for_active()
+    shortage_panel = None
+    edition_gate = None
+    if phase == "order":
+        shortage_panel = {
+            "window": shortage_window,
+            "acks": (ShortageAcknowledgement.query.filter_by(window_id=shortage_window.id).count()
+                     if shortage_window else 0),
+        }
+        if shortage_window is not None and shortage_window.status == "open":
+            edition_gate = {"label": "Plazo de pedido insuficiente resuelto", "done": False,
+                            "detail": "El plazo extraordinario sigue abierto"}
+    overview = build_admin_overview(
+        current_phase=phase, steps=BASE_STEPS, order_phases={"order"},
+        promoted_total=promoted_total, min_total=min_total, order_finalized=order_finalized,
+        test_mode=test_mode, final_context=final_context,
+        final_selection_limit=active_limits["final_selection_limit"], materialized=materialized,
+        costs_configured=(get_annual_setting('order_tax_percent') is not None
+                          and get_annual_setting('order_shipping_amount') is not None),
+        payment_configured=bool(order_payment_iban and order_payment_due_date),
+        edition_gate=edition_gate,
+    )
+
     return render_template(
         "admin_dashboard.html",
         products=pagination.items,
@@ -818,6 +856,8 @@ def admin_dashboard():
         log_action=log_action,
         log_user_id=log_user_id,
         color_overview=color_overview,
+        overview=overview,
+        shortage_panel=shortage_panel,
     )
 
 
@@ -920,7 +960,7 @@ def promote_all_products():
 def toggle_user_active():
     _ensure_admin()
     user_id = request.form.get("user_id", type=int)
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     desired_state = request.form.get("desired_state", type=int)
     user.active = bool(desired_state)
     db.session.commit()
@@ -934,7 +974,7 @@ def toggle_user_active():
 def toggle_user_admin():
     _ensure_admin()
     user_id = request.form.get("user_id", type=int)
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     desired_state = request.form.get("desired_state", type=int)
     user.is_admin = bool(desired_state)
     db.session.commit()
@@ -948,7 +988,7 @@ def toggle_user_admin():
 def validate_declaration():
     _ensure_admin()
     user_id = request.form.get("user_id", type=int)
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     from app.services.active_campaign import current_campaign, current_membership
     membership = current_membership(user.id)
     if membership is None or not membership.signed_document:
@@ -971,7 +1011,7 @@ def validate_declaration():
 def delete_declaration():
     _ensure_admin()
     user_id = request.form.get("user_id", type=int)
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     from app.services.active_campaign import current_membership
     membership = current_membership(user.id)
     if membership is None:
@@ -996,7 +1036,7 @@ def delete_declaration():
 def invalidate_declaration():
     _ensure_admin()
     user_id = request.form.get("user_id", type=int)
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     from app.services.active_campaign import current_membership
     membership = current_membership(user.id)
     if membership is None:
@@ -1017,7 +1057,7 @@ def invalidate_declaration():
 def reset_user_password():
     _ensure_admin()
     user_id = request.form.get("user_id", type=int)
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     default_password = current_app.config.get("DEFAULT_USER_PASSWORD")
     if not default_password or len(default_password) < 12:
         abort(503, description="Configure DEFAULT_USER_PASSWORD securely")
@@ -1037,7 +1077,7 @@ def reset_user_password():
 @login_required
 def download_declaration(user_id: int):
     _ensure_admin()
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     from app.services.active_campaign import current_membership
     membership = current_membership(user.id)
     if membership is None or not membership.signed_document:
@@ -1157,7 +1197,18 @@ def toggle_test_mode():
         flash(f"El modo de pruebas ya está {state_text}.", "info")
         return _admin_redirect()
 
-    Config.set(TEST_MODE_KEY, "1" if desired_state else "0")
+    if desired_state:
+        # Test mode reduces limits and allows exports below the minimum, so it
+        # may only be switched on before any real order exists, during the
+        # first phase, and with an explicit typed confirmation.
+        if get_current_phase() != "first" or orders_query().first() is not None:
+            flash("El modo de pruebas solo puede activarse en la primera fase y sin pedidos registrados.", "danger")
+            return _admin_redirect()
+        if (request.form.get("confirm") or "").strip() != "MODO PRUEBAS":
+            flash("Escribe MODO PRUEBAS para confirmar la activación.", "warning")
+            return _admin_redirect()
+
+    set_annual_setting(TEST_MODE_KEY, "1" if desired_state else "0")
 
     if current_state and not desired_state:
         # Switching off test mode must NEVER silently erase real records.
@@ -1296,7 +1347,7 @@ def generate_order_exports_route():
         flash(f"No se pudo generar el pedido final: {exc}", "danger")
         return _admin_redirect()
 
-    timestamp = datetime.utcnow().isoformat()
+    timestamp = utc_now().isoformat()
     set_annual_setting('final_order_excel', files["excel"])
     set_annual_setting('final_order_piece_pdf', files.get("piece_pdf") or files.get("piece"))
     set_annual_setting('final_order_user_pdf', files.get("user_pdf") or files.get("user"))
@@ -1321,11 +1372,14 @@ def regenerate_order_exports_route():
         flash("No hay referencias promovidas con votos para regenerar los archivos.", "warning")
         return _admin_redirect()
 
-    _regenerate_order_exports_in_background(
+    error = _regenerate_order_exports(
         get_annual_setting('final_order_payment_iban') or None,
         get_annual_setting('final_order_payment_due_date') or None,
     )
-    flash("La regeneracion de archivos se ha lanzado en segundo plano.", "success")
+    if error:
+        flash("No se pudieron regenerar los archivos del pedido: " + error, "danger")
+    else:
+        flash("Archivos del pedido regenerados.", "success")
     return _admin_redirect()
 
 
@@ -1359,8 +1413,13 @@ def update_order_payment_details():
     set_annual_setting('final_order_payment_due_date', due_date.isoformat())
 
     if _order_is_finalized():
-        _regenerate_order_exports_in_background(iban, due_date.isoformat())
-        flash("Datos de pago guardados. Los archivos se estan regenerando en segundo plano.", "success")
+        # Synchronous: the administrator sees the real outcome, and a process
+        # restart can no longer silently lose a half-done regeneration.
+        error = _regenerate_order_exports(iban, due_date.isoformat())
+        if error:
+            flash("Datos de pago guardados, pero no se pudieron regenerar los archivos: " + error, "danger")
+        else:
+            flash("Datos de pago guardados y archivos del pedido regenerados.", "success")
         return _admin_redirect(active_tab=active_tab)
 
     flash("Datos de pago guardados.", "success")
@@ -1381,7 +1440,8 @@ def download_order_file(kind: str):
         abort(404)
     from app.services.export_path_safety import safe_export_path
     folder = current_app.config["ORDER_EXPORT_FOLDER"]
-    suffixes = {"excel": ".xlsx", "piece": ".pdf", "user": ".zip"}
+    # Both per-piece and per-user bundles are ZIP files (generate_order_files).
+    suffixes = {"excel": ".xlsx", "piece": ".zip", "user": ".zip"}
     path = safe_export_path(folder, filename, suffix=suffixes[kind])
     if path is None:
         abort(404)
@@ -1446,7 +1506,7 @@ def admin_add_order():
     if quantity is None or quantity <= 0:
         flash("Indica una cantidad mayor que cero.", "warning")
         return _admin_redirect(active_tab="pedidos")
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     require_campaign_participant(user.id)
     product = None
     if product_id:
@@ -1927,7 +1987,8 @@ def _admin_redirect(active_tab: str | None = None):
     return redirect(target)
 
 
-def _attempt_phase_backup(phase_at_backup: str, target_phase: str, *, flash_success: bool = False) -> None:
+def _attempt_phase_backup(phase_at_backup: str, target_phase: str, *, flash_success: bool = False,
+                          quiet: bool = False) -> None:
     """Try to create a backup without bloquear el cambio de fase."""
     Config.set("last_backup_phase", phase_at_backup)
     Config.set("last_backup_target_phase", target_phase)
@@ -1937,10 +1998,24 @@ def _attempt_phase_backup(phase_at_backup: str, target_phase: str, *, flash_succ
             flash(f"Backup creado para {phase_at_backup} → {target_phase}.", "success")
     except Exception as exc:  # noqa: BLE001
         write_backup_error_log(exc)
+        if quiet:
+            # Automatic transitions run inside any visitor's request: never show
+            # them this message. The admin sees the error log under "Sistema".
+            current_app.logger.error("Automatic phase backup failed: %s", exc)
+            return
         flash(
             "No se pudo crear el backup automático. Inténtalo manualmente y descarga el log de error.",
             "danger",
         )
+
+
+def _apply_automatic_transition(previous: str, target: str) -> None:
+    """Date-driven phase change with the same side effects as the admin buttons:
+    a backup first and, on entering the final selection, a persisted selection."""
+    _attempt_phase_backup(previous, target, quiet=True)
+    set_campaign_phase(target)
+    if target == "final":
+        compute_final_selection(limit=get_limit_configuration()["final_selection_limit"])
 
 
 def get_current_phase() -> str:
@@ -2435,7 +2510,7 @@ def _auto_advance_phase_from_schedule(current_phase: str | None = None) -> None:
         if _calculate_global_order_total() >= minimum:
             target = "final"
     if target != phase:
-        set_campaign_phase(target)
+        _apply_automatic_transition(phase, target)
 
 
 def _safe_archive_name(value: str) -> str:
@@ -2452,34 +2527,28 @@ def _parse_iso_date(value: str | None) -> date | None:
         return None
 
 
-def _regenerate_order_exports_in_background(payment_iban: str | None, payment_due_date: str | None) -> None:
-    app = current_app._get_current_object()
-
-    def _runner() -> None:
-        with app.app_context():
-            try:
-                summary = build_final_order_context()
-                if not summary["products"]:
-                    return
-                tax_amount = _get_config_float("final_order_last_tax")
-                shipping_amount = _get_config_float("final_order_last_shipping")
-                files = generate_order_files(
-                    summary,
-                    tax_amount,
-                    shipping_amount,
-                    payment_iban,
-                    payment_due_date,
-                )
-                set_annual_setting('final_order_excel', files["excel"])
-                set_annual_setting('final_order_piece_pdf', files.get("piece_pdf") or files.get("piece"))
-                set_annual_setting('final_order_user_pdf', files.get("user_pdf") or files.get("user"))
-                set_annual_setting('final_order_generated_at', datetime.utcnow().isoformat())
-            except Exception as exc:  # noqa: BLE001
-                app.logger.exception("No se pudieron regenerar los archivos del pedido tras guardar los datos de pago: %s", exc)
-            finally:
-                db.session.remove()
-
-    threading.Thread(target=_runner, name="order-payment-regeneration", daemon=True).start()
+def _regenerate_order_exports(payment_iban: str | None, payment_due_date: str | None) -> str | None:
+    """Regenerate the final exports in-request. Returns an error text or None."""
+    try:
+        summary = build_final_order_context()
+        if not summary["products"]:
+            return "no hay referencias en el pedido"
+        files = generate_order_files(
+            summary,
+            _get_config_float("final_order_last_tax"),
+            _get_config_float("final_order_last_shipping"),
+            payment_iban,
+            payment_due_date,
+        )
+        set_annual_setting('final_order_excel', files["excel"])
+        set_annual_setting('final_order_piece_pdf', files.get("piece_pdf") or files.get("piece"))
+        set_annual_setting('final_order_user_pdf', files.get("user_pdf") or files.get("user"))
+        set_annual_setting('final_order_generated_at', utc_now().isoformat())
+        return None
+    except Exception as exc:  # noqa: BLE001
+        db.session.rollback()
+        current_app.logger.exception("No se pudieron regenerar los archivos del pedido: %s", exc)
+        return str(exc) or exc.__class__.__name__
 
 
 def _is_valid_iban(value: str) -> bool:
@@ -2565,6 +2634,7 @@ def _handle_products_excel_upload(content: bytes | None = None):
     errors = []
     total_rows = 0
     seen_references: set[str] = set()
+    seen_normalized_import: set[str] = set()
     color_lookup = _build_color_lookup()
 
     for row in sheet.iter_rows(min_row=2, values_only=True):
@@ -2584,12 +2654,27 @@ def _handle_products_excel_upload(content: bytes | None = None):
             skipped += 1
             errors.append(f"Fila {total_rows + 1}: falta la referencia.")
             continue
+        # Same rule as the preview parser: a repeated reference in the file is
+        # skipped (the first row wins) instead of silently overwriting it.
+        if reference.strip().casefold() in seen_normalized_import:
+            skipped += 1
+            errors.append(f"Fila {total_rows + 1}: referencia duplicada {reference}; fila omitida.")
+            continue
+        seen_normalized_import.add(reference.strip().casefold())
         seen_references.add(reference)
 
         name_value = _first_value(row_data, ["name", "description", "descripcion", "descripci_n"])
         if not name_value:
             skipped += 1
             errors.append(f"Fila {total_rows + 1}: falta el nombre para {reference}.")
+            continue
+
+        price, price_error = _catalog_price(
+            _first_value(row_data, ["2026_prices_in_eur", "2025_prices_in_eur", "price"]))
+        if price_error:
+            # Never create or alter a reference from a row with an unusable price.
+            skipped += 1
+            errors.append(f"Fila {total_rows + 1}: {price_error} para {reference}; fila omitida.")
             continue
 
         product = products_query().filter_by(reference=reference).first()
@@ -2616,14 +2701,10 @@ def _handle_products_excel_upload(content: bytes | None = None):
                 f"https://www.lego.com/cdn/product-assets/element.img.lod5photo.192x192/{clean_material}.jpg"
             )
 
-        price_value = _first_value(row_data, ["2026_prices_in_eur", "2025_prices_in_eur", "price"])
-        if price_value not in (None, ""):
-            try:
-                product.price = float(price_value)
-            except (TypeError, ValueError):
-                errors.append(
-                    f"Fila {total_rows + 1}: precio inválido '{price_value}' para {reference}."
-                )
+        if price is not None:
+            product.price = price
+        elif product.price is None:
+            errors.append(f"Fila {total_rows + 1}: {reference} sin precio; se importa pero no se podrá votar.")
 
         for csv_key, attr in bool_fields.items():
             if csv_key not in row_data:
@@ -2724,6 +2805,26 @@ def _clear_pending_excel_upload() -> None:
             pass
 
 
+def _catalog_price(value):
+    """Return (price, error) for a catalogue cell. Empty -> (None, None).
+
+    Shared by the preview parser and the importer so both apply the same rule:
+    a usable price is a finite number greater than zero (no NaN, inf, 0 or <0).
+    """
+    import math
+    if value in (None, ""):
+        return None, None
+    if isinstance(value, bool):
+        return None, f"precio inválido '{value}'"
+    try:
+        price = float(str(value).replace(",", ".")) if isinstance(value, str) else float(value)
+    except (TypeError, ValueError):
+        return None, f"precio inválido '{value}'"
+    if not math.isfinite(price) or price <= 0:
+        return None, f"precio inválido '{value}' (debe ser un número mayor que 0)"
+    return price, None
+
+
 def _parse_products_excel(content: bytes):
     try:
         workbook = load_workbook(filename=io.BytesIO(content), data_only=True)
@@ -2820,13 +2921,15 @@ def _parse_products_excel(content: bytes):
             )
 
         price_value = _first_value(row_data, ["2026_prices_in_eur", "2025_prices_in_eur", "price"])
-        if price_value not in (None, ""):
-            try:
-                data["price"] = float(price_value)
-            except (TypeError, ValueError):
-                errors.append(
-                    f"Fila {total_rows + 1}: precio invalido '{price_value}' para {reference}."
-                )
+        price, price_error = _catalog_price(price_value)
+        if price_error:
+            skipped += 1
+            errors.append(f"Fila {total_rows + 1}: {price_error} para {reference}; fila omitida.")
+            continue
+        if price is None:
+            errors.append(f"Fila {total_rows + 1}: {reference} sin precio; se importa pero no se podrá votar.")
+        else:
+            data["price"] = price
 
         for csv_key, attr in bool_fields.items():
             if csv_key not in row_data:
@@ -3125,6 +3228,10 @@ def shortage_admin():
                 flash('Pedido cancelado por insuficiencia.', 'warning')
             elif action=='check':
                 shortage.reconcile()
+            elif action=='close_campaign':
+                closed = shortage.close_cancelled_campaign(current_user.id, request.form.get('confirm'))
+                flash(f'Campaña {closed.year} cerrada. Su histórico se conserva y ya puedes preparar el borrador del año siguiente.', 'success')
+                return redirect(url_for('main.campaign_registry'))
             else:abort(400)
         except ValueError as exc:
             flash(str(exc),'danger')
@@ -3133,6 +3240,7 @@ def shortage_admin():
     total=shortage.order_total(campaign.id)
     minimum=shortage.minimum_total()
     return render_template('shortage_admin.html',window=row,total=total,minimum=minimum,
+                           campaign_year=campaign.year,
                            missing=max(Decimal('0'),minimum-total))
 
 

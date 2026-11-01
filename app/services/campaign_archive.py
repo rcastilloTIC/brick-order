@@ -2,7 +2,7 @@
 
 Does not activate a new campaign: legacy route scoping is incomplete.
 """
-from datetime import datetime
+from app.time_utils import utc_now
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
 from decimal import Decimal, InvalidOperation
@@ -154,7 +154,7 @@ def archive_completed_campaign(*, year: int, export_folder: str, actor_id: int):
         raise CampaignArchiveError('El Excel definitivo no coincide con los pedidos de la campaña.')
     try:
         campaign.status = 'archived'
-        campaign.archived_at = datetime.utcnow()
+        campaign.archived_at = utc_now()
         log_user_action(actor_id, 'admin_campaign_archive',
                         f'Campaña {campaign.year} (id={campaign.id}) archivada.')
         db.session.commit()
