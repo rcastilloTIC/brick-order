@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Pedido insuficiente{% endblock %}
+{% block content %}
+<h1>Pedido insuficiente</h1>
+<p>Importe del pedido: <strong>{{ '%.2f'|format(total) }} EUR</strong> · Minimo configurado: <strong>{{ '%.2f'|format(minimum) }} EUR</strong> · Faltan {{ '%.2f'|format(missing) }} EUR.</p>
+{% if window %}
+<div class="alert alert-info">Estado: <strong>{{ window.status }}</strong> · Apertura: {{ window.opened_at }} · Vencimiento: {{ window.deadline_at or '-' }} · Motivo: {{ window.closing_reason or '-' }}</div>
+{% if window.status == 'open' %}
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="check"><button class="btn btn-outline-primary">Revisar cumplimiento ahora</button></form>
+{% endif %}
+{% else %}
+<p>Solo se puede abrir un plazo si la campana esta en fase de pedido y por debajo del minimo.</p>
+<form method="post" class="mb-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="open"><label for="days">Dias del plazo (1-30)</label> <input id="days" type="number" name="days" min="1" max="30" value="7" required><button class="btn btn-primary">Avisar y abrir plazo</button></form>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="cancel"><label>Escribe CANCELAR para confirmar <input name="confirm" required></label><button class="btn btn-outline-danger">Cancelar pedido</button></form>
+{% endif %}
+<p class="text-muted">Los avisos se muestran al acceder a VALBRICK. La comprobacion automatica de vencimientos requiere ejecutar el comando de mantenimiento periodico.</p>
+{% endblock %}

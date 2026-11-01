@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Subir Declaración Jurada{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <h2 class="mb-4">Sube tu declaración jurada firmada</h2>
+    <p>Descarga el compromiso, fírmalo y sube el PDF firmado. Un administrador deberá validarlo.</p>
+    <p><a class="btn btn-outline-primary" href="{{ url_for('auth.download_commitment') }}">Descargar compromiso en PDF</a></p>
+    {% if declaration_issue %}
+      <div class="alert alert-danger" role="alert">
+        {{ declaration_issue }}
+      </div>
+    {% endif %}
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label for="declaration_pdf" class="form-label">Declaración en PDF</label>
+        <input type="file" class="form-control" id="declaration_pdf" name="declaration_pdf" accept="application/pdf" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Subir archivo</button>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Cerrar sesión</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

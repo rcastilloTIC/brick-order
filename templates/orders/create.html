@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Nuevo pedido{% endblock %}
+{% block content %}
+<h2 class="mb-4">Crear nuevo pedido</h2>
+<form method="post" class="row gy-3">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12">
+    <label for="product_id" class="form-label">Producto</label>
+    <select name="product_id" id="product_id" class="form-select" required>
+      <option value="">-- Selecciona un producto --</option>
+      {% for product in products %}
+        <option value="{{ product.id }}">{{ product.name or product.reference }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-12">
+    <label for="user_id" class="form-label">Participante autorizado</label>
+    <select name="user_id" id="user_id" class="form-select" required>
+      <option value="">-- Selecciona un participante --</option>
+      {% for participant in participants %}
+        <option value="{{ participant.id }}">{{ participant.username }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-12">
+    <label for="quantity" class="form-label">Cantidad</label>
+    <input type="number" name="quantity" id="quantity" class="form-control" min="1" step="1" required>
+  </div>
+  <div class="col-12 d-flex gap-2">
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{{ url_for('orders.list_orders') }}" class="btn btn-secondary">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

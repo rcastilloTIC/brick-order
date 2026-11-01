@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ _('sim.title') }}{% endblock %}
+{% block content %}
+<section class="sim-page">
+  <header class="sim-hero">
+    <div><span class="sim-overline">VALBRICK · {{ _('sim.lab') }}</span><h1>{{ _('sim.title') }}</h1><p>{{ _('sim.subtitle') }}</p></div>
+    <a href="{{ url_for('main.order_insights') }}" class="btn btn-outline-secondary">{{ _('sim.back') }}</a>
+  </header>
+  <div class="alert alert-warning" role="status"><strong>{{ _('sim.fake') }}</strong> {{ _('sim.safe') }}</div>
+  <form method="get" action="{{ url_for('main.demo_simulator') }}" class="sim-options">
+    <label>{{ _('sim.seed') }}<input class="form-control" type="number" min="1" max="999999" step="1" name="seed" value="{{ demo.seed }}" required></label>
+    <label>{{ _('sim.users') }}<input class="form-control" type="number" min="5" max="120" step="1" name="users" value="{{ demo.users }}" required></label>
+    <label>{{ _('sim.products') }}<input class="form-control" type="number" min="90" max="180" step="1" name="products" value="{{ demo.products }}" required></label>
+    <label>{{ _('sim.boost_ref') }}<input class="form-control" type="number" min="0" max="{{ demo.products }}" name="boost_ref" value="{{ demo.intervention.reference[4:]|int if demo.intervention.reference else 0 }}"></label>
+    <label>{{ _('sim.boost_units') }}<input class="form-control" type="number" min="0" max="10000" name="boost_units" value="{{ demo.intervention.asked }}"></label>
+    <input type="hidden" name="step" value="1">
+    <button type="submit" class="btn btn-primary">{{ _('sim.restart') }}</button>
+  </form>
+  <section class="sim-panel" aria-label="{{ _('sim.limits') }}"><h3>{{ _('sim.limits') }}</h3>
+    <div class="sim-metrics">
+    <div class="sim-metric"><small>{{ _('sim.personal') }}</small><strong>{{ demo.limits.personal }} €</strong></div>
+    <div class="sim-metric"><small>{{ _('sim.phase_refs') }}</small><strong>{{ demo.limits.first_refs }} / {{ demo.limits.second_refs }}</strong></div>
+    <div class="sim-metric"><small>{{ _('sim.cutoff') }}</small><strong>{{ demo.limits.cutoff }}</strong></div>
+    <div class="sim-metric"><small>{{ _('sim.minimum') }}</small><strong>{{ demo.limits.minimum }} €</strong></div>
+    </div>
+    <p>{{ _('sim.threshold') }}: <strong>{{ _('sim.yes') if demo.threshold_met else _('sim.no') }}</strong></p>
+    {% if demo.intervention.reference %}<p>{{ _('sim.intervention') }}: {{ demo.intervention.reference }} · {{ _('sim.requested') }} {{ demo.intervention.asked }} · {{ _('sim.applied') }} {{ demo.intervention.applied }} · {{ _('sim.rank') }} {{ demo.intervention.previous }} → {{ demo.intervention.current }}</p>{% endif %}
+  </section>
+  <nav class="sim-steps" aria-label="{{ _('sim.stages') }}">
+    {% for s in demo.stages %}<a href="{{ url_for('main.demo_simulator',step=s.number,seed=demo.seed,users=demo.users,products=demo.products,boost_ref=demo.intervention.reference[4:]|int if demo.intervention.reference else 0,boost_units=demo.intervention.asked) }}" class="sim-step{% if s.number == step %} is-current{% endif %}" {% if s.number == step %}aria-current="step"{% endif %}><small>{{ '%02d'|format(s.number) }}</small>{{ _('sim.stage' ~ s.number ~ '.title') }}</a>{% endfor %}
+  </nav>
+  <article class="sim-current">
+    <span class="sim-overline">{{ _('sim.step') }} {{ step }} / 8</span>
+    <h2>{{ _('sim.stage' ~ step ~ '.title') }}</h2><p>{{ _('sim.stage' ~ step ~ '.detail') }}</p>
+    <div class="sim-metrics">{% for label,value in active.stats.items() %}<div class="sim-metric"><small>{{ label }}</small><strong>{{ value }}</strong></div>{% endfor %}</div>
+  </article>
+  {% if step >= 4 %}
+  <section class="sim-panel"><h3>{{ _('sim.boundary') }}</h3><div class="table-responsive"><table class="table"><thead><tr><th>{{ _('sim.rank') }}</th><th>{{ _('sim.reference') }}</th><th>{{ _('sim.units') }}</th><th>{{ _('sim.voters') }}</th><th>{{ _('sim.status') }}</th></tr></thead><tbody>{% for p in demo.boundary %}<tr><td>{{ p.position }}</td><td>{{ p.reference }}</td><td>{{ p.units }}</td><td>{{ p.voters }}</td><td>{{ _('sim.selected') if p.selected else _('sim.excluded') }}</td></tr>{% endfor %}</tbody></table></div></section>
+  {% endif %}
+  {% if step >= 4 %}
+  <div class="sim-metrics sim-summary">
+    <div class="sim-metric"><small>{{ _('sim.before') }}</small><strong>{{ demo.initial }} €</strong></div>
+    <div class="sim-metric"><small>{{ _('sim.released') }}</small><strong>{{ demo.released }} €</strong></div>
+    <div class="sim-metric"><small>{{ _('sim.after') }}</small><strong>{{ demo.retained }} €</strong></div>
+    {% if step >= 6 %}<div class="sim-metric"><small>{{ _('sim.final') }}</small><strong>{{ demo.final }} €</strong></div>{% endif %}
+  </div>
+  {% endif %}
+  {% if step >= 6 %}
+  <div class="sim-bottom">
+    <section class="sim-panel"><h3>{{ _('sim.top') }}</h3>
+      {% for p in demo.top %}<div class="sim-bar-row"><div><b>{{ p.reference }}</b> <span>{{ p.name }}</span><strong>{{ p.units }}</strong></div><div class="sim-bar"><span style="width: {{ p.percent }}%"></span></div></div>{% endfor %}
+    </section>
+    <section class="sim-panel"><h3>{{ _('sim.groups') }}</h3><div class="table-responsive"><table class="table"><thead><tr><th>{{ _('sim.group') }}</th><th class="text-end">{{ _('sim.value') }}</th></tr></thead><tbody>{% for g in demo.categories %}<tr><td>{{ g.name }}</td><td class="text-end">{{ g.amount }} €</td></tr>{% endfor %}</tbody></table></div></section>
+  </div>
+  {% endif %}
+  {% if step == 8 %}<section class="sim-panel sim-audit"><h3>{{ _('sim.audit') }}</h3><ul>{% for check in demo.result_checks %}<li>{{ check }}</li>{% endfor %}</ul></section>{% endif %}
+  <div class="sim-actions">
+    {% if step > 1 %}<a class="btn btn-outline-secondary" href="{{ url_for('main.demo_simulator',step=step-1,seed=demo.seed,users=demo.users,products=demo.products,boost_ref=demo.intervention.reference[4:]|int if demo.intervention.reference else 0,boost_units=demo.intervention.asked) }}">{{ _('sim.prev') }}</a>{% endif %}
+    {% if step < 8 %}<a class="btn btn-primary" href="{{ url_for('main.demo_simulator',step=step+1,seed=demo.seed,users=demo.users,products=demo.products,boost_ref=demo.intervention.reference[4:]|int if demo.intervention.reference else 0,boost_units=demo.intervention.asked) }}">{{ _('sim.next') }}</a>{% else %}<a class="btn btn-primary" href="{{ url_for('main.demo_simulator',step=1,seed=demo.seed+1 if demo.seed < 999999 else 1,users=demo.users,products=demo.products) }}">{{ _('sim.again') }}</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

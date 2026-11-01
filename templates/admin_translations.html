@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ _('tr.title') }}{% endblock %}
+{% block content %}
+<section class="vb-translation-page">
+  <div class="vb-page-head mb-4"><div><h1>{{ _('tr.title') }}</h1><p class="vb-subtitle">{{ _('tr.subtitle') }}</p></div></div>
+  <div class="vb-admin-overview mb-4">
+    <div class="vb-kpi"><div><small>{{ _('tr.count') }}</small><strong>{{ total }}</strong></div></div>
+    <div class="vb-kpi"><div><small>{{ _('tr.missing') }}</small><strong>{{ missing_total }}</strong></div></div>
+  </div>
+  <div class="card mb-4"><div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-3"><label class="form-label" for="tr-lang">{{ _('tr.language') }}</label><select class="form-select" id="tr-lang" name="lang">{% for code in languages %}<option value="{{code}}" {% if code == language %}selected{% endif %}>{{code|upper}}</option>{% endfor %}</select></div>
+      <div class="col-md-5"><label class="form-label" for="tr-q">{{ _('tr.search') }}</label><input class="form-control" id="tr-q" name="q" value="{{query}}"></div>
+      <div class="col-md-2"><div class="form-check"><input class="form-check-input" type="checkbox" name="missing" value="1" id="tr-missing" {% if only_missing %}checked{% endif %}><label class="form-check-label" for="tr-missing">{{ _('tr.missing_only') }}</label></div></div>
+      <div class="col-md-2"><button class="btn btn-primary w-100">{{ _('ui.filter') }}</button></div>
+    </form>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      <a class="btn btn-outline-secondary" href="{{url_for('translations_admin.export',language=language)}}">{{ _('tr.download') }}</a>
+      <form method="post" enctype="multipart/form-data" action="{{url_for('translations_admin.import_file')}}" class="d-flex flex-wrap gap-2 align-items-center">
+        <input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="lang" value="{{language}}">
+        <input class="form-control" type="file" name="file" accept=".json,application/json" aria-label="{{ _('tr.choose_file') }}" required>
+        <button class="btn btn-outline-primary">{{ _('tr.import') }}</button>
+      </form>
+    </div>
+  </div></div>
+  <div class="card"><div class="table-responsive"><table class="table align-middle mb-0 vb-translation-table"><thead><tr><th>{{ _('tr.key') }}</th><th>{{ _('tr.source_text') }}</th><th>{{ _('tr.translation') }}</th><th>{{ _('ui.status') }}</th><th>{{ _('ui.actions') }}</th></tr></thead><tbody>
+    {% for row in rows %}<tr><td><code>{{row.key}}</code></td><td class="small">{{ row.source }}</td><td>
+      <form id="tr-form-{{loop.index}}" method="post" action="{{url_for('translations_admin.save')}}">
+        <input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="lang" value="{{language}}"><input type="hidden" name="key" value="{{row.key}}"><input type="hidden" name="q" value="{{query}}">
+        <textarea class="form-control" rows="2" name="value" maxlength="2000" required>{{row.value}}</textarea>
+      </form></td><td>{% if row.missing %}<span class="badge text-bg-warning">{{ _('tr.missing') }}</span>{% elif row.customized %}<span class="badge text-bg-info">{{ _('tr.overridden') }}</span>{% else %}<span class="badge text-bg-success">{{ _('tr.complete') }}</span>{% endif %}</td>
+      <td><div class="d-flex flex-wrap gap-2"><button class="btn btn-primary btn-sm" form="tr-form-{{loop.index}}">{{ _('tr.save') }}</button>{% if row.customized %}<form method="post" action="{{url_for('translations_admin.reset')}}"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="lang" value="{{language}}"><input type="hidden" name="key" value="{{row.key}}"><button class="btn btn-outline-secondary btn-sm">{{ _('tr.reset') }}</button></form>{% endif %}</div></td></tr>
+    {% else %}<tr><td colspan="5" class="text-center py-4">{{ _('tr.no_match') }}</td></tr>{% endfor %}
+  </tbody></table></div></div>
+  <p class="small text-muted mt-3">{{ _('tr.note') }}</p>
+</section>
+{% endblock %}

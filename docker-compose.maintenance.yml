@@ -1,0 +1,20 @@
+# Explicit opt-in: docker compose -f docker-compose.yml -f docker-compose.maintenance.yml --profile maintenance up -d maintenance
+# Production database and secrets are inherited from the same .env + data mount.
+# ONLY ONE maintenance container should run for a deployment.
+services:
+  maintenance:
+    profiles: [maintenance]
+    build: .
+    env_file: .env
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: sqlite:////data/db/app.sqlite
+      DECLARATION_UPLOAD_FOLDER: /data/declarations
+      ORDER_EXPORT_FOLDER: /data/exports
+      BACKUP_FOLDER: /data/backups
+      BOM_MAINTENANCE_INTERVAL_SECONDS: ${BOM_MAINTENANCE_INTERVAL_SECONDS:-1800}
+    volumes:
+      - ./data:/data
+    entrypoint: ["sh", "/app/scripts/run_v87_scheduler.sh"]
+    restart: unless-stopped
+    network_mode: none

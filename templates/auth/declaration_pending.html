@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Declaración en revisión{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8 text-center">
+    <h2 class="mb-4">Declaración jurada recibida</h2>
+    <p class="lead">Un administrador revisará tu documento y te notificaremos cuando esté validado.</p>
+    <p>Mientras tanto no podrás acceder al catálogo. Gracias por tu paciencia.</p>
+    <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary mt-3">Cerrar sesión</a>
+  </div>
+</div>
+{% endblock %}

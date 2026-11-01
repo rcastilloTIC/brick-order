@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="container py-4">
+  <h1>Calendario · campaña {{ campaign.year }}</h1>
+  <p>{{ campaign.title }} · {{ campaign.status }}</p>
+  <p>El año de la campaña es el de inicio. Las fechas pueden variar cada temporada y no cambian automáticamente al llegar enero.</p>
+  {% if editable %}
+  <form method="post" class="card p-4" style="max-width:640px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="start_date" class="form-label">Fecha de inicio</label>
+    <input id="start_date" name="start_date" type="date" class="form-control mb-3" value="{{ window[0].isoformat() if window else '' }}" required>
+    <label for="end_date" class="form-label">Fecha de finalización</label>
+    <input id="end_date" name="end_date" type="date" class="form-control mb-3" value="{{ window[1].isoformat() if window else '' }}" required>
+    <button type="submit" class="btn btn-primary">Guardar fechas</button>
+  </form>
+  {% elif window %}
+  <div class="alert alert-secondary">Del {{ window[0].strftime('%d/%m/%Y') }} al {{ window[1].strftime('%d/%m/%Y') }}. Campaña finalizada: solo lectura.</div>
+  {% else %}
+  <div class="alert alert-secondary">Campaña histórica sin fechas registradas. Solo lectura.</div>
+  {% endif %}
+  <p class="mt-3"><a href="{{ url_for('main.campaign_registry') }}">Volver a campañas</a></p>
+</section>
+{% endblock %}

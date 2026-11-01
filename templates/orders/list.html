@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Pedidos{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Pedidos registrados</h2>
+  <div>
+    <a href="{{ url_for('products.list_products') }}" class="btn btn-outline-secondary btn-sm me-2">Productos</a>
+    <a href="{{ url_for('orders.create_order') }}" class="btn btn-primary btn-sm">Nuevo pedido</a>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-striped">
+    <thead class="table-dark">
+      <tr>
+        <th>ID</th>
+        <th>Producto</th>
+        <th>Cantidad</th>
+        <th>Usuario</th>
+        <th>Fecha</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for order in orders %}
+      <tr>
+        <td>#{{ order.id }}</td>
+        <td>
+          {% if order.product %}
+            {{ order.product.name or order.product.reference }}
+          {% else %}
+            <span class="text-muted">Producto eliminado</span>
+          {% endif %}
+        </td>
+        <td>{{ order.quantity }}</td>
+        <td>{{ order.user.username if order.user else 'N/D' }}</td>
+        <td>{{ order.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" class="text-center text-muted">No hay pedidos registrados.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Perfil de Usuario{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-10">
+    <h2 class="mb-4">Perfil de {{ current_user.username }}</h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="first_name" class="form-label">Nombre</label>
+          <input type="text" class="form-control" id="first_name" name="first_name" value="{{ current_user.first_name or '' }}">
+        </div>
+        <div class="col-md-6">
+          <label for="last_name" class="form-label">Apellidos</label>
+          <input type="text" class="form-control" id="last_name" name="last_name" value="{{ current_user.last_name or '' }}">
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="age" class="form-label">Edad</label>
+          <input type="number" class="form-control" id="age" name="age" min="14" value="{{ current_user.age or '' }}">
+        </div>
+        <div class="col-md-6">
+          <label for="dni" class="form-label">DNI / NIE</label>
+          <input type="text" class="form-control" id="dni" name="dni" value="{{ current_user.dni or '' }}" placeholder="12345678A">
+        </div>
+      </div>
+      <hr>
+      <h4 class="mb-3">Cambiar contraseña</h4>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="new_password" class="form-label">Nueva contraseña</label>
+          <input type="password" class="form-control" id="new_password" name="new_password" autocomplete="new-password">
+        </div>
+        <div class="col-md-6">
+          <label for="confirm_password" class="form-label">Repite la nueva contraseña</label>
+          <input type="password" class="form-control" id="confirm_password" name="confirm_password" autocomplete="new-password">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Guardar cambios</button>
+      <a href="{{ url_for('main.user_dashboard') }}" class="btn btn-secondary">Volver</a>
+    </form>
+    {% if user_votes %}
+    <hr>
+    <h4 class="mt-4">Referencias seleccionadas</h4>
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th>Referencia</th>
+            <th>Nombre</th>
+            <th>Cantidad</th>
+            <th>Precio</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in user_votes.values() %}
+          <tr>
+            <td>{{ entry.reference }}</td>
+            <td>{{ entry.name }}</td>
+            <td>{{ entry.vote.quantity }}</td>
+            <td>{{ "%.2f"|format(entry.price) }} €</td>
+            <td>{{ "%.2f"|format(entry.price * entry.vote.quantity) }} €</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="text-end">
+      <strong>Total:</strong> {{ "%.2f"|format(total_order) }} €
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

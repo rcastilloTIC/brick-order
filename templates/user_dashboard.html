@@ -1,0 +1,842 @@
+{% extends "base.html" %}
+{% block title %}{{ _('user.title') }}{% endblock %}
+{% block content %}
+<div class="vb-page-head d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div><h2 class="mb-1">{{ _('user.title') }}</h2><p class="vb-subtitle">{{ _('user.subtitle') }}</p></div>
+  <button type="button" class="btn btn-outline-success btn-sm" id="retroToggle">{{ _('ui.retro') }}</button>
+</div>
+
+{% if shortage_notice %}
+<div class="alert alert-{{ 'danger' if shortage_notice.status == 'cancelled' else 'warning' }} mb-4" role="alert">
+  {% if shortage_notice.status == 'open' %}
+  <h3>Plazo extraordinario para completar el pedido</h3>
+  <p>El importe minimo colectivo aun no se ha alcanzado. Se podran aumentar las cantidades hasta el <strong>{{ shortage_notice.deadline_at.strftime('%d/%m/%Y %H:%M') }} UTC</strong>.</p>
+  <p><strong>Si al terminar ese plazo no se alcanza el importe minimo, el pedido sera cancelado.</strong></p>
+  {% if not shortage_acknowledged %}
+  <form method="post" action="{{ url_for('main.shortage_acknowledge') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label><input type="checkbox" name="read" value="yes" required> He leido el aviso</label>
+    <button type="submit" class="btn btn-primary">Aceptar</button>
+  </form>
+  {% else %}
+  <p>Tu margen adicional de pedido, segun el limite individual de referencia, es <strong>{{ '%.2f'|format(shortage_margin) }} EUR</strong>.</p>
+  <p><a class="btn btn-primary" href="{{ url_for('main.shortage_increase') }}">Aumentar mi pedido</a></p>
+  {% endif %}
+  {% elif shortage_notice.status == 'cancelled' %}
+  <strong>El pedido de esta campana ha sido cancelado.</strong>
+  {% elif shortage_notice.status == 'reached' %}
+  <strong>Se ha alcanzado el minimo colectivo. El pedido puede continuar.</strong>
+  {% endif %}
+</div>
+{% endif %}
+{% if not test_mode_enabled %}
+<!-- Mostrar el total del pedido -->
+<div class="vb-budget-grid" role="status" aria-label="Presupuesto de la campaña">
+  <div class="vb-kpi"><span class="vb-kpi-icon">▣</span><div><small>{{ _('ui.total_order') }}</small><strong>{{ "%.2f"|format(total_order_display) }} €</strong><span>{{ _('ui.current_amount') }}</span></div></div>
+  <div class="vb-kpi"><span class="vb-kpi-icon vb-blue">◈</span><div><small>{{ _('ui.active_commitment') }}</small><strong>{{ "%.2f"|format(active_commitment) }} €</strong><span>{{ _('ui.reserved_votes') }}</span></div></div>
+  <div class="vb-kpi"><span class="vb-kpi-icon vb-violet">▤</span><div><small>{{ _('ui.available') }}</small><strong>{{ "%.2f"|format(available_budget) }} €</strong><span>{{ _('ui.available_budget') }}</span></div></div>
+  {% if current_phase in ['final', 'order'] %}<div class="vb-budget-released">Liberado por referencias descartadas: <strong>{{ "%.2f"|format(released_budget) }} €</strong></div>{% endif %}
+</div>
+{% endif %}
+{% if test_mode_enabled %}
+<div class="alert alert-info">
+  <strong>{{ _('user.test_mode_active') }}</strong> {{ _('user.test_mode_message', refs=active_limits.final_selection_limit) }}
+</div>
+{% endif %}
+{% if current_phase == 'first' %}
+<div class="alert alert-warning">
+  {{ _('user.phase1_limit', refs=active_limits.max_refs_phase_one, budget='%.2f'|format(active_limits.phase_one_order_limit)) }}
+</div>
+{% elif current_phase == 'second' %}
+<div class="alert alert-warning">
+  {{ _('user.phase2_limit', refs=active_limits.max_refs_phase_two, budget='%.2f'|format(active_limits.phase_one_order_limit)) }}
+</div>
+{% elif not voting_open %}
+<div class="alert alert-warning">
+  La fase final está activa. Puedes consultar el catálogo definitivo, pero no modificar tus votos.
+</div>
+{% endif %}
+
+{% if ranking_context %}
+<details class="card mb-4">
+  <summary class="card-header d-flex justify-content-between align-items-center">
+    <span>{{ _('ranking.title') }}</span>
+  </summary>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-bordered table-sm mb-0">
+        <thead class="table-dark">
+          <tr>
+            <th>{{ _('ui.position') }}</th>
+            <th>{{ _('ui.image') }}</th>
+            <th>{{ _('ui.reference') }}</th>
+            <th>{{ _('ui.name') }}</th>
+            <th>Color BL</th>
+            <th>{{ _('ui.votes') }}</th>
+            <th>{{ _('ui.quantity') }}</th>
+            <th>{{ _('ui.amount') }}</th>
+            <th>{{ _('ui.status') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in ranking_context.rows %}
+          <tr class="{% if row.is_locked %}table-warning{% elif row.is_disabled %}table-secondary{% elif row.within_limit %}table-success{% endif %}">
+            <td>{{ row.position }}</td>
+            <td>
+              {% if row.image_url %}
+                <img src="{{ row.image_url }}" alt="{{ row.name }}" class="img-thumbnail" width="50">
+              {% else %}
+                <span class="text-muted small">{{ _('ui.no_image') }}</span>
+              {% endif %}
+            </td>
+            <td>{{ row.reference }}</td>
+            <td>{{ row.name }}</td>
+            <td>{{ row.color_bl or '-' }}</td>
+            <td>{{ row.votes }}</td>
+            <td>{{ row.qty_total }}</td>
+            <td>{{ '%.2f'|format(row.amount_total) }} €</td>
+            <td>
+              {% if row.is_disabled %}
+                <span class="badge bg-secondary">{{ _('ui.cancelled') }}</span>
+              {% elif row.is_locked %}
+                <span class="badge bg-warning text-dark">{{ _('ui.locked') }}</span>
+              {% elif row.within_limit %}
+                <span class="badge bg-success">{{ _('ui.selected') }}</span>
+              {% else %}
+                <span class="badge bg-light text-dark">{{ _('ui.outside') }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</details>
+{% endif %}
+
+{% if current_phase in ['final','order'] %}
+  {% if order_generated_at %}
+    <div class="card mb-4">
+      <div class="card-header">
+        {{ _('user.final_order_generated', date=order_generated_at) }}
+      </div>
+      <div class="card-body">
+        <p class="mb-3">
+          {{ _('user.cost_applied', tax='%.2f'|format(applied_tax), shipping='%.2f'|format(applied_shipping)) }}
+        </p>
+        {% if final_order_user %}
+          {% if user_order_pdf_available %}
+            <p class="mb-3">
+              <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.download_user_order_pdf') }}">{{ _('user.download_pdf') }}</a>
+            </p>
+          {% endif %}
+          <div class="table-responsive mb-3">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>{{ _('ui.reference') }}</th>
+                  <th>{{ _('ui.name') }}</th>
+                  <th>Color / Color BL</th>
+                  <th>{{ _('ui.quantity') }}</th>
+                  <th>Precio</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in final_order_user.lines %}
+                  <tr>
+                    <td>{{ item.product.reference }}</td>
+                    <td>{{ item.product.name }}</td>
+                    <td>{{ item.product.colour_id or '-' }} / {{ item.product.color_bl or '-' }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ "%.2f"|format(item.product.price or 0) }} €</td>
+                    <td>{{ "%.2f"|format(item.amount) }} €</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <p>{{ _('user.subtotal') }} <strong>{{ "%.2f"|format(final_order_user.subtotal) }} €</strong></p>
+          <p>{{ _('user.extra_costs') }} <strong>{{ "%.2f"|format(final_order_extra) }} €</strong></p>
+          <p class="fs-5">{{ _('user.total_due') }} <strong>{{ "%.2f"|format(final_order_user.subtotal + final_order_extra) }} €</strong></p>
+        {% else %}
+          <div class="alert alert-info mb-0">
+            No tienes piezas en el pedido final.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-info">
+      El pedido final todavía no se ha generado. Vuelve a revisar más tarde.
+    </div>
+  {% endif %}
+{% endif %}
+
+<!-- Formulario de búsqueda y filtros -->
+<form id="userFiltersForm" class="row gy-2 gx-3 align-items-center mb-3 vb-filters" method="get" action="{{ url_for('main.user_dashboard') }}">
+  <div class="col-auto">
+    <input type="text" class="form-control" name="reference" placeholder="{{ _('ui.search_reference') }}" value="{{ reference_search }}">
+  </div>
+  <div class="col-auto">
+    <input type="text" class="form-control" name="name" placeholder="{{ _('ui.search_name') }}" value="{{ name_search }}">
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="userColourDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+      {% if colour_filter %}{{ colour_filter_label }}{% else %}Color{% endif %}
+    </button>
+    <ul class="dropdown-menu" aria-labelledby="userColourDropdown" style="max-height: 300px; overflow-y: auto;">
+      <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); selectUserColour('');">{{ _('ui.show_all') }}</a></li>
+      {% for option in colour_options %}
+        <li><a class="dropdown-item{% if option.value == colour_filter %} active{% endif %}" href="#" onclick="event.preventDefault(); selectUserColour('{{ option.value }}');">{{ option.label }}</a></li>
+      {% endfor %}
+    </ul>
+    <input type="hidden" id="colour" name="colour" value="{{ colour_filter }}">
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="userMainGroupTopDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+      {% if main_group_top_filter %}{{ main_group_top_filter }}{% else %}Main Group Top{% endif %}
+    </button>
+    <ul class="dropdown-menu" aria-labelledby="userMainGroupTopDropdown" style="max-height: 300px; overflow-y: auto;">
+      <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); selectUserMainGroupTop('');">{{ _('ui.show_all') }}</a></li>
+      {% for option in main_group_top_options %}
+        <li><a class="dropdown-item{% if option == main_group_top_filter %} active{% endif %}" href="#" onclick="event.preventDefault(); selectUserMainGroupTop('{{ option }}');">{{ option }}</a></li>
+      {% endfor %}
+    </ul>
+    <input type="hidden" id="main_group_top" name="main_group_top" value="{{ main_group_top_filter }}">
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="userMainGroupDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+      {% if main_group_filter %}{{ main_group_filter }}{% else %}Main Group{% endif %}
+    </button>
+    <ul class="dropdown-menu" aria-labelledby="userMainGroupDropdown" style="max-height: 300px; overflow-y: auto;">
+      <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); selectUserMainGroup('');">{{ _('ui.show_all') }}</a></li>
+      {% for option in main_group_options %}
+        <li><a class="dropdown-item{% if option == main_group_filter %} active{% endif %}" href="#" onclick="event.preventDefault(); selectUserMainGroup('{{ option }}');">{{ option }}</a></li>
+      {% endfor %}
+    </ul>
+    <input type="hidden" id="main_group" name="main_group" value="{{ main_group_filter }}">
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="userMainGroupSubDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+      {% if main_group_sub_filter %}{{ main_group_sub_filter }}{% else %}Main Group Sub{% endif %}
+    </button>
+    <ul class="dropdown-menu" aria-labelledby="userMainGroupSubDropdown" style="max-height: 300px; overflow-y: auto;">
+      <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); selectUserMainGroupSub('');">{{ _('ui.show_all') }}</a></li>
+      {% for option in main_group_sub_options %}
+        <li><a class="dropdown-item{% if option == main_group_sub_filter %} active{% endif %}" href="#" onclick="event.preventDefault(); selectUserMainGroupSub('{{ option }}');">{{ option }}</a></li>
+      {% endfor %}
+    </ul>
+    <input type="hidden" id="main_group_sub" name="main_group_sub" value="{{ main_group_sub_filter }}">
+  </div>
+  <div class="col-auto">
+    <select class="form-select" name="present">
+      <option value="">{{ _('ui.all') }}</option>
+      <option value="new" {% if present_filter|lower in ['new', 'no', 'false', '0'] %}selected{% endif %}>Sólo nuevas</option>
+      <option value="2025" {% if present_filter|lower in ['2025', 'yes', 'si', 'true', '1'] %}selected{% endif %}>Sólo las de 2025</option>
+    </select>
+  </div>
+  <div class="col-auto">
+    <select class="form-select" name="price_order">
+      <option value="">{{ _('ui.sort_price') }}</option>
+      <option value="asc" {% if price_order == 'asc' %}selected{% endif %}>Menor a mayor</option>
+      <option value="desc" {% if price_order == 'desc' %}selected{% endif %}>Mayor a menor</option>
+    </select>
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-primary">{{ _('ui.filter') }}</button>
+  </div>
+  <div class="col-auto">
+    <a class="btn btn-outline-secondary" href="{{ url_for('main.user_dashboard') }}">{{ _('ui.clear') }}</a>
+  </div>
+  <input type="hidden" name="per_page" value="{{ per_page }}">
+  <input type="hidden" name="order_mode" value="{{ order_mode }}">
+</form>
+
+<ul class="nav nav-tabs" id="userTab" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="piezas-tab" data-bs-toggle="tab" data-bs-target="#piezas" type="button" role="tab" aria-controls="piezas" aria-selected="true">{{ _('ui.parts') }}</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="pedido-tab" data-bs-toggle="tab" data-bs-target="#pedido" type="button" role="tab" aria-controls="pedido" aria-selected="false">Pedido</button>
+  </li>
+
+  {% if current_phase in ['order'] %}
+  <li class="nav-item ms-auto" role="presentation">
+    {% if order_mode == 'mine' %}
+      <a class="nav-link" href="{{ url_for('main.user_dashboard', page=pagination.page, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order, order_mode='ranking') }}">Ordenar por ranking</a>
+    {% else %}
+      <a class="nav-link" href="{{ url_for('main.user_dashboard', page=pagination.page, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order, order_mode='mine') }}">Ordenar por mis piezas</a>
+    {% endif %}
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="columnas-tab" data-bs-toggle="tab" data-bs-target="#columnas" type="button" role="tab" aria-controls="columnas" aria-selected="false">{{ _('ui.configure_columns') }}</button>
+  </li>
+  {% else %}
+  <li class="nav-item ms-auto" role="presentation">
+    <button class="nav-link" id="columnas-tab" data-bs-toggle="tab" data-bs-target="#columnas" type="button" role="tab" aria-controls="columnas" aria-selected="false">{{ _('ui.configure_columns') }}</button>
+  </li>
+  {% endif %}
+</ul>
+<div class="tab-content" id="userTabContent">
+  <div class="tab-pane fade show active" id="piezas" role="tabpanel" aria-labelledby="piezas-tab">
+    {% if favorite_products %}
+    <div class="card my-3">
+      <div class="card-header">
+        <button class="btn btn-link text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#favoritesCollapse" aria-expanded="true" aria-controls="favoritesCollapse">
+          Favoritas ({{ favorite_products|length }})
+        </button>
+      </div>
+      <div class="collapse show" id="favoritesCollapse">
+        <div class="card-body p-0">
+          <div class="table-responsive mb-0">
+            <table class="table table-bordered mb-0 pieces-table">
+              <thead class="table-dark">
+                <tr>
+                  <th>Nº</th>
+                  <th>ID</th>
+                  <th>{{ _('ui.image') }}</th>
+                  <th>{{ _('ui.reference') }}</th>
+                  <th>{{ _('ui.name') }}</th>
+                  {% if current_phase in ['final','order'] %}
+                  <th>Estado Final</th>
+                  {% endif %}
+                  <th>Color</th>
+                  <th>Color BL</th>
+                  <th>Main Group Top</th>
+                  <th>Main Group</th>
+                  <th>Main Group Sub</th>
+                  <th>Precio</th>
+                  <th>{{ _('ui.quantity') }}</th>
+                  <th>{{ _('ui.total_pieces') }}</th>
+                  <th>{{ _('ui.total_amount') }}</th>
+                  <th>Favorita</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for product in favorite_products %}
+                {% set vote_entry = user_votes.get(product.id) %}
+                {% set vote = vote_entry.vote if vote_entry else None %}
+                <tr class="{% if product.is_locked %}table-warning{% elif vote %}table-success{% endif %}">
+                  <td>{{ loop.index }}</td>
+                  <td>{{ product.id }}</td>
+                  <td>
+                    {% if product.image_url %}
+                      <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-thumbnail" width="75">
+                    {% else %}
+                      <span class="text-muted">{{ _('ui.no_image') }}</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ product.reference }}</td>
+                  <td>{{ product.name }}</td>
+                  {% if current_phase in ['final','order'] %}
+                  <td>
+                    {% if product.final_selected %}
+                      <span class="badge bg-success">{{ _('ui.selected') }}</span>
+                    {% elif product.final_disabled %}
+                      <span class="badge bg-danger">{{ _('ui.cancelled') }}</span>
+                    {% elif product.final_promoted %}
+                      <span class="badge bg-primary">Promovida</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ _('ui.pending') }}</span>
+                    {% endif %}
+                  </td>
+                  {% endif %}
+                  <td>{{ product.colour_id }}</td>
+                  <td>{{ product.color_bl or '-' }}</td>
+                  <td>{{ product.main_group_top }}</td>
+                  <td>{{ product.main_group }}</td>
+                  <td>{{ product.main_group_sub }}</td>
+                  <td>
+                    {% if product.price is not none %}
+                      {{ "%.2f"|format(product.price) }} €
+                    {% else %}
+                      N/A
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% set can_vote = voting_open %}
+                    {% if can_vote %}
+                    <form method="post" action="{{ url_for('main.vote') }}" class="d-inline">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="product_id" value="{{ product.id }}">
+                      <input type="hidden" name="page" value="{{ pagination.page }}">
+                      <input type="hidden" name="per_page" value="{{ per_page }}">
+                      <input type="hidden" name="reference" value="{{ reference_search }}">
+                      <input type="hidden" name="name" value="{{ name_search }}">
+                      <input type="hidden" name="colour" value="{{ colour_filter }}">
+                      <input type="hidden" name="main_group_top" value="{{ main_group_top_filter }}">
+                      <input type="hidden" name="main_group" value="{{ main_group_filter }}">
+                      <input type="hidden" name="main_group_sub" value="{{ main_group_sub_filter }}">
+                      <input type="hidden" name="present" value="{{ present_filter }}">
+                      <input type="hidden" name="price_order" value="{{ price_order }}">
+                      <input type="hidden" name="votes_only" value="{{ votes_only }}">
+                      <input type="number" name="quantity" class="form-control d-inline-block" style="width: 80px;"
+                             value="{{ vote.quantity if vote else '' }}" min="{{ vote.quantity if vote else 1 }}" step="1" required>
+                      <button type="submit" class="btn btn-sm btn-success mt-1">{{ _('ui.vote') }}</button>
+                    </form>
+                    {% else %}
+                      {% if vote %}
+                        <span class="badge bg-secondary">{{ vote.quantity }} uds</span>
+                      {% else %}
+                        <span class="text-muted">Sin voto</span>
+                      {% endif %}
+                    {% endif %}
+                  </td>
+                  <td>
+                    {{ vote.quantity if vote else 0 }}
+                  </td>
+                  <td>
+                    {% if vote and product.price is not none %}
+                      {{ "%.2f"|format(product.price * vote.quantity) }} €
+                    {% else %}
+                      0.00 €
+                    {% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="{{ url_for('main.toggle_favorite') }}" class="d-inline">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="product_id" value="{{ product.id }}">
+                      <input type="hidden" name="page" value="{{ pagination.page }}">
+                      <input type="hidden" name="per_page" value="{{ per_page }}">
+                      <input type="hidden" name="reference" value="{{ reference_search }}">
+                      <input type="hidden" name="name" value="{{ name_search }}">
+                      <input type="hidden" name="colour" value="{{ colour_filter }}">
+                      <input type="hidden" name="main_group_top" value="{{ main_group_top_filter }}">
+                      <input type="hidden" name="main_group" value="{{ main_group_filter }}">
+                      <input type="hidden" name="main_group_sub" value="{{ main_group_sub_filter }}">
+                      <input type="hidden" name="present" value="{{ present_filter }}">
+                      <input type="hidden" name="price_order" value="{{ price_order }}">
+                      <input type="hidden" name="votes_only" value="{{ votes_only }}">
+                      <button type="submit" class="btn btn-sm btn-warning">Quitar</button>
+                    </form>
+                  </td>
+                  <td>
+                    {% if can_vote %}
+                    <span class="text-muted" title="Compromiso irreversible">Comprometido</span>
+                    {% else %}
+                      <span class="text-muted">Acción no disponible</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    <!-- Paginación superior -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+      <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center mb-0">
+          {% if pagination.has_prev %}
+            <li class="page-item">
+          <a class="page-link" href="{{ url_for('main.user_dashboard', page=pagination.prev_num, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order) }}" aria-label="Anterior">
+                <span aria-hidden="true">&laquo;</span>
+              </a>
+            </li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+          {% endif %}
+          {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+            {% if p %}
+              {% if p == pagination.page %}
+                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+              {% else %}
+            <li class="page-item"><a class="page-link" href="{{ url_for('main.user_dashboard', page=p, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order) }}">{{ p }}</a></li>
+              {% endif %}
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+          {% endfor %}
+          {% if pagination.has_next %}
+            <li class="page-item">
+          <a class="page-link" href="{{ url_for('main.user_dashboard', page=pagination.next_num, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order) }}" aria-label="Siguiente">
+                <span aria-hidden="true">&raquo;</span>
+              </a>
+            </li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+          {% endif %}
+        </ul>
+      </nav>
+      <form method="get" action="{{ url_for('main.user_dashboard') }}" class="d-flex align-items-center gap-2">
+        <input type="hidden" name="reference" value="{{ reference_search }}">
+        <input type="hidden" name="name" value="{{ name_search }}">
+        <input type="hidden" name="colour" value="{{ colour_filter }}">
+    <input type="hidden" name="main_group_top" value="{{ main_group_top_filter }}">
+    <input type="hidden" name="main_group" value="{{ main_group_filter }}">
+    <input type="hidden" name="main_group_sub" value="{{ main_group_sub_filter }}">
+        <input type="hidden" name="present" value="{{ present_filter }}">
+        <input type="hidden" name="price_order" value="{{ price_order }}">
+        <input type="hidden" name="order_mode" value="{{ order_mode }}">
+        <label for="perPageUser" class="form-label mb-0">{{ _('ui.per_page') }}</label>
+        <select id="perPageUser" name="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+          <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+          <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+          <option value="200" {% if per_page == 200 %}selected{% endif %}>200</option>
+        </select>
+      </form>
+    </div>
+
+    <!-- Tabla de productos -->
+    <div class="table-responsive">
+      <table class="table table-bordered pieces-table">
+    <thead class="table-dark">
+      <tr>
+        <th>Nº</th>
+        <th>ID</th>
+        <th>{{ _('ui.image') }}</th>
+        <th>{{ _('ui.reference') }}</th>
+        <th>{{ _('ui.name') }}</th>
+        {% if current_phase in ['final','order'] %}
+        <th>Estado Final</th>
+        {% endif %}
+        <th>Color</th>
+        <th>Color BL</th>
+        <th>Main Group Top</th>
+        <th>Main Group</th>
+        <th>Main Group Sub</th>
+        <th>Precio</th>
+        <th>{{ _('ui.quantity') }}</th>
+        <th>{{ _('ui.total_pieces') }}</th>
+        <th>{{ _('ui.total_amount') }}</th>
+        <th>Favorita</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for product in products %}
+      {% set vote_entry = user_votes.get(product.id) %}
+      {% set vote = vote_entry.vote if vote_entry else None %}
+      {% set agg = aggregates.get(product.id) %}
+      <tr class="{% if product.is_locked %}table-warning{% elif vote %}table-success{% endif %}">
+        {% set row_number = (pagination.page - 1) * per_page + loop.index %}
+        <td>{{ row_number }}</td>
+        <td>{{ product.id }}</td>
+        <td>
+          {% if product.image_url %}
+            <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-thumbnail" width="75">
+          {% else %}
+            <span class="text-muted">{{ _('ui.no_image') }}</span>
+          {% endif %}
+        </td>
+        <td>{{ product.reference }}</td>
+        <td>{{ product.name }}</td>
+        {% if current_phase in ['final','order'] %}
+        <td>
+          {% if product.final_selected %}
+            <span class="badge bg-success">{{ _('ui.selected') }}</span>
+          {% elif product.final_disabled %}
+            <span class="badge bg-danger">{{ _('ui.cancelled') }}</span>
+          {% elif product.final_promoted %}
+            <span class="badge bg-primary">Promovida</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ _('ui.pending') }}</span>
+          {% endif %}
+        </td>
+        {% endif %}
+        <td>{{ product.colour_id }}</td>
+        <td>{{ product.color_bl or '-' }}</td>
+        <td>{{ product.main_group_top }}</td>
+        <td>{{ product.main_group }}</td>
+        <td>{{ product.main_group_sub }}</td>
+        <td>
+          {% if product.price is not none %}
+            {{ "%.2f"|format(product.price) }} €
+          {% else %}
+            N/A
+          {% endif %}
+        </td>
+        <td>
+          {% set can_vote = voting_open %}
+          {% if can_vote %}
+          <!-- Formulario único por fila para votar -->
+          <form method="post" action="{{ url_for('main.vote') }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="product_id" value="{{ product.id }}">
+            <input type="hidden" name="page" value="{{ pagination.page }}">
+            <input type="hidden" name="per_page" value="{{ per_page }}">
+            <input type="hidden" name="reference" value="{{ reference_search }}">
+            <input type="hidden" name="name" value="{{ name_search }}">
+            <input type="hidden" name="colour" value="{{ colour_filter }}">
+            <input type="hidden" name="main_group_top" value="{{ main_group_top_filter }}">
+            <input type="hidden" name="main_group" value="{{ main_group_filter }}">
+            <input type="hidden" name="main_group_sub" value="{{ main_group_sub_filter }}">
+            <input type="hidden" name="present" value="{{ present_filter }}">
+            <input type="hidden" name="price_order" value="{{ price_order }}">
+            <input type="hidden" name="order_mode" value="{{ order_mode }}">
+            <input type="hidden" name="votes_only" value="{{ votes_only }}">
+            <input type="number" name="quantity" class="form-control d-inline-block" style="width: 80px;"
+                   value="{{ vote.quantity if vote else '' }}" min="{{ vote.quantity if vote else 1 }}" step="1" required>
+            <button type="submit" class="btn btn-sm btn-success mt-1">{{ _('ui.vote') }}</button>
+          </form>
+          {% else %}
+            {% if vote %}
+              <span class="badge bg-secondary">{{ vote.quantity }} uds</span>
+    {% else %}
+      <span class="text-muted">Sin voto</span>
+    {% endif %}
+  {% endif %}
+</td>
+        <td>
+          {{ vote.quantity if vote else 0 }}
+        </td>
+        <td>
+          {% if vote and product.price is not none %}
+            {{ "%.2f"|format(product.price * vote.quantity) }} €
+          {% else %}
+            0.00 €
+          {% endif %}
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('main.toggle_favorite') }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="product_id" value="{{ product.id }}">
+            <input type="hidden" name="page" value="{{ pagination.page }}">
+            <input type="hidden" name="per_page" value="{{ per_page }}">
+            <input type="hidden" name="reference" value="{{ reference_search }}">
+            <input type="hidden" name="name" value="{{ name_search }}">
+            <input type="hidden" name="colour" value="{{ colour_filter }}">
+            <input type="hidden" name="main_group_top" value="{{ main_group_top_filter }}">
+            <input type="hidden" name="main_group" value="{{ main_group_filter }}">
+            <input type="hidden" name="main_group_sub" value="{{ main_group_sub_filter }}">
+            <input type="hidden" name="present" value="{{ present_filter }}">
+            <input type="hidden" name="price_order" value="{{ price_order }}">
+            <input type="hidden" name="order_mode" value="{{ order_mode }}">
+            <input type="hidden" name="votes_only" value="{{ votes_only }}">
+            {% if product.id in favorite_ids %}
+              <button type="submit" class="btn btn-sm btn-warning">Quitar</button>
+            {% else %}
+              <button type="submit" class="btn btn-sm btn-outline-warning">Favorita</button>
+            {% endif %}
+          </form>
+        </td>
+        <td>
+          {% if can_vote %}
+          <!-- Formulario para borrar el voto -->
+          <span class="text-muted" title="Compromiso irreversible">Comprometido</span>
+          {% else %}
+            <span class="text-muted">Acción no disponible</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+    </div>
+
+    <!-- Paginación inferior -->
+    <nav aria-label="Page navigation">
+      <ul class="pagination justify-content-center">
+        {% if pagination.has_prev %}
+          <li class="page-item">
+        <a class="page-link" href="{{ url_for('main.user_dashboard', page=pagination.prev_num, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order, order_mode=order_mode) }}" aria-label="Anterior">
+              <span aria-hidden="true">&laquo;</span>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+        {% endif %}
+        {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+          {% if p %}
+            {% if p == pagination.page %}
+              <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% else %}
+          <li class="page-item"><a class="page-link" href="{{ url_for('main.user_dashboard', page=p, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order, order_mode=order_mode) }}">{{ p }}</a></li>
+            {% endif %}
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          {% endif %}
+        {% endfor %}
+        {% if pagination.has_next %}
+          <li class="page-item">
+        <a class="page-link" href="{{ url_for('main.user_dashboard', page=pagination.next_num, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order, order_mode=order_mode) }}" aria-label="Siguiente">
+              <span aria-hidden="true">&raquo;</span>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  <div class="tab-pane fade" id="pedido" role="tabpanel" aria-labelledby="pedido-tab">
+    {% if user_votes %}
+    <div class="card my-3">
+      <div class="card-header">
+        Referencias seleccionadas ({{ user_votes|length }})
+      </div>
+      <div class="card-body p-0">
+        {% set missing_refs = user_votes.values() | selectattr("present_in_2025", "equalto", False) | list %}
+        {% if missing_refs %}
+          <div class="alert alert-warning m-3 mb-0">
+            Algunas referencias ya no están en el listado 2025. Revisa tu pedido.
+          </div>
+        {% endif %}
+        <div class="table-responsive mb-0">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr>
+                <th>{{ _('ui.reference') }}</th>
+                <th>{{ _('ui.name') }}</th>
+                <th>Color / Color BL</th>
+                <th>Pedido cerrado</th>
+                <th>{{ _('ui.quantity') }}</th>
+                <th>Precio unitario</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in user_votes.values() %}
+                <tr>
+                  <td>{{ entry.reference }}</td>
+                  <td>{{ entry.name }}</td>
+                  <td>{{ entry.colour_id or '-' }} / {{ entry.color_bl or '-' }}</td>
+                  <td>{{ entry.vote.initial_quantity if entry.vote.initial_quantity is not none else entry.vote.quantity }}</td>
+                  <td>{{ entry.vote.quantity }}</td>
+                  <td>{{ "%.2f"|format(entry.price) }} €</td>
+                  <td>{{ "%.2f"|format(entry.price * entry.vote.quantity) }} €</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if not test_mode_enabled %}
+          <div class="text-end pe-3 pb-2">
+            <strong>Total:</strong> {{ "%.2f"|format(total_order_display) }} €
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+      <div class="alert alert-info my-3">Todavía no has seleccionado referencias.</div>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="columnas" role="tabpanel" aria-labelledby="columnas-tab">
+    <div class="card my-3">
+      <div class="card-header">{{ _('ui.configure_columns') }}</div>
+      <div class="card-body">
+        <div class="row row-cols-1 row-cols-md-2 g-2">
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Nº" checked> <span class="form-check-label">Nº</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="ID" checked> <span class="form-check-label">ID</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Imagen" checked> <span class="form-check-label">{{ _('ui.image') }}</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Referencia" checked> <span class="form-check-label">{{ _('ui.reference') }}</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Nombre" checked> <span class="form-check-label">{{ _('ui.name') }}</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Estado Final" checked> <span class="form-check-label">Estado Final</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Color" checked> <span class="form-check-label">Color</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Color BL" checked> <span class="form-check-label">Color BL</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Main Group Top" checked> <span class="form-check-label">Main Group Top</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Main Group" checked> <span class="form-check-label">Main Group</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Main Group Sub" checked> <span class="form-check-label">Main Group Sub</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Precio" checked> <span class="form-check-label">Precio</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Cantidad" checked> <span class="form-check-label">{{ _('ui.quantity') }}</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Total Piezas" checked> <span class="form-check-label">{{ _('ui.total_pieces') }}</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Total Importe" checked> <span class="form-check-label">{{ _('ui.total_amount') }}</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Favorita" checked> <span class="form-check-label">Favorita</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input user-col-toggle" type="checkbox" data-col-label="Acciones" checked> <span class="form-check-label">Acciones</span></label></div>
+        </div>
+        <div class="text-muted mt-2">La configuración se guarda en este navegador.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function selectUserMainGroupTop(value) {
+    document.getElementById('main_group_top').value = value;
+    document.getElementById('userFiltersForm').submit();
+  }
+
+  function selectUserMainGroup(value) {
+    document.getElementById('main_group').value = value;
+    document.getElementById('userFiltersForm').submit();
+  }
+
+  function selectUserMainGroupSub(value) {
+    document.getElementById('main_group_sub').value = value;
+    document.getElementById('userFiltersForm').submit();
+  }
+
+  function selectUserColour(value) {
+    document.getElementById('colour').value = value;
+    document.getElementById('userFiltersForm').submit();
+  }
+
+  function setupColumnConfig(storageKey, checkboxSelector, tableSelector) {
+    const checkboxes = Array.from(document.querySelectorAll(checkboxSelector));
+    if (!checkboxes.length) {
+      return;
+    }
+    let hidden = [];
+    try {
+      hidden = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    } catch (e) {
+      hidden = [];
+    }
+    checkboxes.forEach((checkbox) => {
+      checkbox.checked = !hidden.includes(checkbox.dataset.colLabel);
+      checkbox.addEventListener('change', () => {
+        hidden = checkboxes.filter((item) => !item.checked).map((item) => item.dataset.colLabel);
+        localStorage.setItem(storageKey, JSON.stringify(hidden));
+        apply();
+      });
+    });
+
+    function apply() {
+      const tables = document.querySelectorAll(tableSelector);
+      tables.forEach((table) => {
+        const headers = Array.from(table.querySelectorAll('thead th'));
+        const headerIndex = {};
+        headers.forEach((th, idx) => {
+          headerIndex[th.textContent.trim()] = idx;
+        });
+        checkboxes.forEach((checkbox) => {
+          const label = checkbox.dataset.colLabel;
+          const idx = headerIndex[label];
+          if (idx === undefined) {
+            return;
+          }
+          const hide = !checkbox.checked;
+          const headerCell = headers[idx];
+          if (headerCell) {
+            headerCell.classList.toggle('d-none', hide);
+          }
+          table.querySelectorAll('tbody tr').forEach((row) => {
+            const cell = row.children[idx];
+            if (cell) {
+              cell.classList.toggle('d-none', hide);
+            }
+          });
+        });
+      });
+    }
+
+    apply();
+  }
+
+  setupColumnConfig('brick order manager_user_columns', '.user-col-toggle', '.pieces-table');
+
+  const retroToggle = document.getElementById('retroToggle');
+  if (retroToggle) {
+    const retroKey = 'brick order manager_retro_mode';
+    const applyRetro = (enabled) => {
+      document.body.classList.toggle('retro-mode', enabled);
+      retroToggle.textContent = enabled ? 'Modo normal' : 'Modo retro';
+    };
+    const saved = localStorage.getItem(retroKey) === '1';
+    applyRetro(saved);
+    retroToggle.addEventListener('click', () => {
+      const enabled = !document.body.classList.contains('retro-mode');
+      localStorage.setItem(retroKey, enabled ? '1' : '0');
+      applyRetro(enabled);
+    });
+  }
+
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+<!-- templates/products/list.html -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Productos</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <h1>Listado de Productos</h1>
+
+  <nav>
+    <a href="{{ url_for('auth.logout') }}">Cerrar sesión</a>
+    {% if current_user.is_authenticated and current_user.is_admin %}
+      | <a href="{{ url_for('orders.list_orders') }}">Pedidos</a>
+    {% endif %}
+  </nav>
+
+  <ul>
+    {% for product in products %}
+      <li>
+        <a href="{{ url_for('products.product_detail', product_id=product.id) }}">
+          {{ product.name or product.reference }}
+        </a>
+        {% if product.price is not none %}- {{ "%.2f"|format(product.price) }} €{% endif %}
+      </li>
+    {% else %}
+      <li>No hay productos disponibles.</li>
+    {% endfor %}
+  </ul>
+</body>
+</html>

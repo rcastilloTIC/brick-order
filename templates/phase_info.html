@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Información de la Fase Siguiente{% endblock %}
+{% block content %}
+<h2 class="mb-4">Fase Siguiente</h2>
+{% if deadline %}
+  <p><strong>Fecha límite:</strong> {{ deadline }}</p>
+{% else %}
+  <p>No se ha configurado la fecha límite.</p>
+{% endif %}
+<h3>Listado de Piezas</h3>
+<!-- Aquí puedes incluir filtros y el listado similar al admin; por simplicidad, se muestra una tabla básica -->
+<div class="table-responsive">
+  <table class="table table-striped">
+    <thead class="table-dark">
+      <tr>
+        <th>ID</th>
+        <th>Imagen</th>
+        <th>Referencia</th>
+        <th>Nombre</th>
+        <th>Color</th>
+        <th>Precio</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for product in products %}
+      <tr>
+        <td>{{ product.id }}</td>
+        <td>
+          {% if product.image_url %}
+            <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-thumbnail" width="75">
+          {% else %}
+            <span class="text-muted">Sin imagen</span>
+          {% endif %}
+        </td>
+        <td>{{ product.reference }}</td>
+        <td>{{ product.name }}</td>
+        <td>{{ product.colour_id }}</td>
+        <td>
+          {% if product.price is not none %}
+            {{ "%.2f"|format(product.price) }} €
+          {% else %}
+            N/A
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

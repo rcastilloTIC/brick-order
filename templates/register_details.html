@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Registro – Datos Personales{% endblock %}
+{% block content %}
+<h2 class="mb-4">Completa tus datos</h2>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="mb-3">
+    <label for="first_name" class="form-label">Nombre:</label>
+    <input type="text" class="form-control" id="first_name" name="first_name" required>
+  </div>
+  <div class="mb-3">
+    <label for="last_name" class="form-label">Apellido:</label>
+    <input type="text" class="form-control" id="last_name" name="last_name" required>
+  </div>
+  <div class="mb-3">
+    <label for="dni" class="form-label">DNI/NIE:</label>
+    <input type="text" class="form-control" id="dni" name="dni" required>
+  </div>
+  <div class="mb-3">
+    <label for="new_password" class="form-label">Nueva Contraseña:</label>
+    <input type="password" class="form-control" id="new_password" name="new_password" required>
+    <div class="form-text">Entre 8 y 16 caracteres, al menos una mayúscula, una minúscula y un número, sin símbolos.</div>
+  </div>
+  <div class="mb-3">
+    <label for="confirm_password" class="form-label">Repetir Nueva Contraseña:</label>
+    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Siguiente</button>
+</form>
+{% endblock %}

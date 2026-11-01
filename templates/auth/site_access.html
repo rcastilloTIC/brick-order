@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Acceso restringido{% endblock %}
+{% block content %}
+<div class="bom-auth-layout"><div class="row justify-content-center w-100">
+  <div class="col-md-8 col-lg-6 bom-auth-card">
+    <h2 class="mb-4 text-center">Introduce la contraseña de acceso</h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3">
+        <label for="access_password" class="form-label">Contraseña</label>
+        <input type="password" class="form-control" id="access_password" name="access_password" required autofocus>
+      </div>
+      <div class="d-grid">
+        <button type="submit" class="btn btn-primary">Entrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+</div>
+{% endblock %}

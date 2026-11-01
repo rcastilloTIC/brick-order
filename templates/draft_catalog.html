@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Catálogo del borrador {{ draft.year }}{% endblock %}
+{% block content %}
+<h2>Importar catálogo Excel — {{ draft.year }}</h2>
+<p>Los cambios afectan exclusivamente a la campaña en borrador. No se modifican campañas anteriores. Una importación con filas inválidas se rechaza completamente.</p>
+<form method="post" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="excel_file">Excel (.xlsx) con Material y Description</label>
+<input class="form-control mb-3" type="file" id="excel_file" name="excel_file" accept=".xlsx" required>
+<button class="btn btn-primary" type="submit">Importar en {{ draft.year }}</button>
+<a class="btn btn-secondary" href="{{ url_for('main.campaign_history') }}">Volver</a>
+</form>
+{% if report %}<div class="alert alert-info mt-3">Nuevas: {{ report.created|default(0) }} · Actualizadas: {{ report.updated|default(0) }} · Incidencias: {{ report.errors|default([])|length }}</div>{% endif %}
+{% endblock %}

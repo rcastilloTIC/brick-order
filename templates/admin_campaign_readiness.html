@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Comprobación anual{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h1 class="h3">Diagnóstico de aislamiento anual</h1>
+  <p>Comprobación de solo lectura. No activa campañas ni modifica datos.</p>
+  {% if report.database_consistent %}
+  <div class="alert alert-success">Las comprobaciones de integridad de la base de datos no han detectado incidencias.</div>
+  {% else %}
+  <div class="alert alert-danger">Hay {{ report.findings|length }} incidencias de integridad o preparación.</div>
+  <ul class="list-group mb-3">{% for item in report.findings %}<li class="list-group-item">{{ item }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if report.draft_preparation %}
+  <section class="card mb-4" aria-labelledby="draft-preparation-title">
+    <div class="card-body">
+      <h2 class="h5" id="draft-preparation-title">Preparación de las próximas campañas</h2>
+      <p class="text-muted">Resumen de solo lectura por año. El catálogo y las inscripciones pueden prepararse sin habilitar votaciones ni pedidos.</p>
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead><tr><th scope="col">Año</th><th scope="col">Referencias</th><th scope="col">Inscripciones</th><th scope="col">Aprobadas con documento</th><th scope="col">Aprobadas sin documento</th><th scope="col">Votos</th><th scope="col">Favoritos</th><th scope="col">Pedidos</th><th scope="col">Estado</th></tr></thead>
+          <tbody>
+          {% for year, counts in report.draft_preparation|dictsort %}
+            {% set has_activity = counts['user_vote'] or counts['user_favorite'] or counts['order'] %}
+            <tr>
+              <th scope="row">{{ year }}</th>
+              <td>{{ counts['product'] }}</td>
+              <td>{{ counts['campaign_participation'] }}</td>
+              <td>{{ counts.get('approved_with_document', 0) }}</td>
+              <td>{{ counts.get('approved_without_document', 0) }}</td>
+              <td>{{ counts['user_vote'] }}</td>
+              <td>{{ counts['user_favorite'] }}</td>
+              <td>{{ counts['order'] }}</td>
+              <td>{% if has_activity or counts.get('approved_without_document', 0) %}<span class="badge bg-danger">Revisión necesaria</span>{% elif not counts['product'] or not counts['campaign_participation'] %}<span class="badge bg-secondary">Preparación incompleta</span>{% else %}<span class="badge bg-info text-dark">Preparación registrada</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="small text-muted mb-0">Este estado no certifica que la campaña esté lista para activarse; la activación sigue bloqueada.</p>
+    </div>
+  </section>
+  {% endif %}
+  {% if report.draft_activation %}
+  <section class="card mb-4" aria-labelledby="activation-preflight-title">
+    <div class="card-body">
+      <h2 class="h5" id="activation-preflight-title">Requisitos de preparación anual</h2>
+      <p class="text-muted">Comprobaciones de datos; no habilitan la activación ni sustituyen las pruebas de integración.</p>
+      {% for year, assessment in report.draft_activation|dictsort %}
+      <h3 class="h6">Campaña {{ year }} — {% if assessment.data_prepared %}Datos preparados{% else %}Pendiente{% endif %}</h3>
+      {% if assessment.blockers %}
+      <ul>{% for blocker in assessment.blockers %}<li>{{ blocker }}</li>{% endfor %}</ul>
+      {% else %}<p>Sin incidencias de datos detectadas. La activación permanece deshabilitada.</p>{% endif %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  <div class="alert alert-warning"><strong>Activación no disponible.</strong> {{ report.caution }}</div>
+  <a class="btn btn-outline-primary" href="{{ url_for('main.campaign_history') }}">Volver al histórico</a>
+</div>
+{% endblock %}

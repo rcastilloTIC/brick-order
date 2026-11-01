@@ -1,0 +1,42 @@
+<!-- templates/products/detail.html -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{{ product.name or product.reference }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <h1>{{ product.name or product.reference }}</h1>
+
+  <nav>
+    <a href="{{ url_for('products.list_products') }}">← Volver al listado</a> |
+    {% if current_user.is_authenticated and current_user.is_admin %}
+      <a href="{{ url_for('orders.create_order') }}">Crear pedido</a> |
+    {% endif %}
+    <a href="{{ url_for('auth.logout') }}">Cerrar sesión</a>
+  </nav>
+
+  {% if product.image_url %}
+    <div class="product-image">
+      <img src="{{ product.image_url }}" alt="{{ product.name }}" />
+    </div>
+  {% endif %}
+
+  <ul>
+    <li><strong>Referencia:</strong> {{ product.reference }}</li>
+    {% if product.price is not none %}
+      <li><strong>Precio:</strong> {{ "%.2f"|format(product.price) }} €</li>
+    {% endif %}
+    {% if product.colour_id %}
+      <li><strong>Color ID:</strong> {{ product.colour_id }}</li>
+    {% endif %}
+    {% if product.present_in_2024 %}
+      <li><strong>En lista 2024:</strong> Sí</li>
+    {% endif %}
+    {% if product.main_group_top %}
+      <li><strong>Grupo principal:</strong> {{ product.main_group_top }}</li>
+    {% endif %}
+  </ul>
+</body>
+</html>

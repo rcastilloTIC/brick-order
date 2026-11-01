@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Pedido Final{% endblock %}
+{% block content %}
+<h2 class="mb-4">Pedido Final</h2>
+<form method="post">
+  <div class="mb-3">
+    <label for="order_details" class="form-label">Detalles del Pedido</label>
+    <textarea id="order_details" name="order_details" class="form-control" rows="4" placeholder="Ingresa los detalles de tu pedido..."></textarea>
+  </div>
+  <button type="submit" class="btn btn-success">Enviar Pedido Final</button>
+</form>
+{% endblock %}

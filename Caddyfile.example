@@ -1,0 +1,5 @@
+# Install Caddy on the HOST, not in another isolated container.
+# Replace with your domain and point DNS at the server.
+mi-dominio.ejemplo.com {
+    reverse_proxy 127.0.0.1:5001
+}

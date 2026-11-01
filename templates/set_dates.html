@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Configurar Fechas{% endblock %}
+{% block content %}
+<h2 class="mb-4">Configurar Fechas</h2>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="mb-3">
+    <label for="voting_start" class="form-label">Fecha de inicio de la votación</label>
+    <input type="date" class="form-control" id="voting_start" name="voting_start" value="{{ voting_start }}" required>
+  </div>
+  <div class="mb-3">
+    <label for="voting_end" class="form-label">Fecha de fin de la votación</label>
+    <input type="date" class="form-control" id="voting_end" name="voting_end" value="{{ voting_end }}" required>
+  </div>
+  <div class="mb-3">
+    <label for="second_phase_date" class="form-label">Fecha para la segunda fase</label>
+    <input type="date" class="form-control" id="second_phase_date" name="second_phase_date" value="{{ second_phase_date }}" required>
+  </div>
+  <div class="mb-3">
+    <label for="order_deadline" class="form-label">Fecha límite para el pedido</label>
+    <input type="date" class="form-control" id="order_deadline" name="order_deadline" value="{{ order_deadline }}"  required>
+  </div>
+  <button type="submit" class="btn btn-success">Guardar Fechas</button>
+</form>
+{% endblock %}

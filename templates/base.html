@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="{{ current_language }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% set is_dev = app_env|lower in ['dev', 'development'] %}
+  {% set is_access_page = request.endpoint == 'auth.site_access' %}
+  {% set is_login_page = request.endpoint == 'auth.login' %}
+  {% set is_admin_page = request.endpoint and (request.endpoint.startswith('main.admin') or request.endpoint in ['main.commitment_management','main.audit_dashboard','main.campaign_history','main.manage_limits']) %}
+  <title>{% block title %}{{ _('app.title', env_prefix='DEV ' if is_dev else '') }}{% endblock %} · VALBRICK</title>
+  <meta name="theme-color" content="#111825">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bom-theme.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/valbrick-v2.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/valbrick-v4-appearance.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/valbrick-v78.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/valbrick-insights.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/valbrick-simulator.css') }}">
+  <script src="{{ url_for('static', filename='js/valbrick-appearance.js') }}"></script>
+</head>
+<body class="bom-app{% if is_access_page or is_login_page %} bom-auth-page{% endif %}">
+  {% if not is_access_page %}
+  <a class="bom-skip-link" href="#main-content">{{ _('ui.skip') }}</a>
+  <nav class="navbar navbar-expand-lg bom-topbar" aria-label="Navegación principal">
+    <div class="container-fluid bom-topbar-inner">
+      <a class="navbar-brand bom-brand" href="{{ url_for('main.user_dashboard') if current_user.is_authenticated else url_for('auth.login') }}">
+        <span class="bom-logo" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+        <span class="bom-brand-wordmark"><strong>VALBRICK</strong><small>Brick Order Manager{% if is_dev %} · DEV{% endif %}</small></span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#bomNav" aria-controls="bomNav" aria-expanded="false" aria-label="{{ _('ui.menu') }}">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="bomNav">
+        {% if current_user.is_authenticated %}
+        <ul class="navbar-nav bom-top-links me-auto">
+          <li class="nav-item"><a class="nav-link {% if request.endpoint == 'main.user_dashboard' %}active{% endif %}" href="{{ url_for('main.user_dashboard') }}">{{ _('ui.panel') }}</a></li>
+          {% if current_user.is_admin %}
+          <li class="nav-item"><a class="nav-link {% if is_admin_page %}active{% endif %}" href="{{ url_for('main.admin_dashboard') }}">{{ _('ui.admin') }}</a></li>
+          {% endif %}
+        </ul>
+        {% endif %}
+        <div class="bom-nav-actions ms-auto">
+          <div class="vb-appearance">
+            <label for="vb-appearance-select" class="vb-theme-label">{{ _('ui.theme_label') }}</label>
+            <select id="vb-appearance-select" class="vb-theme-select" aria-label="{{ _('ui.theme_label') }}">
+              <option value="auto">{{ _('ui.theme_auto') }}</option>
+              <option value="light">{{ _('ui.theme_light') }}</option>
+              <option value="dark">{{ _('ui.theme_dark') }}</option>
+            </select>
+          </div>
+          <div class="dropdown">
+            <button class="btn btn-sm bom-lang-button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">{{ current_language|upper }}</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              {% for language in supported_languages %}
+              <li><a class="dropdown-item {% if language.code == current_language %}active{% endif %}" href="{{ url_for('main.set_language', lang=language.code, next=request.full_path if request.full_path else request.path) }}">{{ language.label }}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% if current_user.is_authenticated %}
+          <div class="dropdown">
+            <button class="btn bom-user-button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><span class="bom-avatar" aria-hidden="true">{{ current_user.username[:1]|upper }}</span><span class="bom-username">{{ current_user.username }}</span></button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              {% if not current_user.is_admin %}<li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">{{ _('ui.profile') }}</a></li>{% endif %}
+              {% if current_user.is_admin %}<li><a class="dropdown-item" href="{{ url_for('main.admin_dashboard') }}">{{ _('ui.admin') }}</a></li>{% endif %}
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">{{ _('ui.logout') }}</a></li>
+            </ul>
+          </div>
+          {% elif not is_login_page %}
+          <a class="btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">{{ _('ui.login') }}</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </nav>
+  {% endif %}
+  {% if current_user.is_authenticated and not is_access_page and not is_login_page %}
+  <div class="vb-workspace">
+    <aside class="vb-sidebar" aria-label="Navegación de la aplicación">
+      <div class="vb-sidebar-group-title">{{ _('ui.main_menu') }}</div>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.order_insights' %} is-active{% endif %}" href="{{ url_for('main.order_insights') }}"><span class="vb-nav-icon" aria-hidden="true">▥</span>{{ _('insights.title') }}</a>
+      {% if current_user.is_admin %}<a class="vb-sidebar-link{% if request.endpoint == 'main.demo_simulator' %} is-active{% endif %}" href="{{ url_for('main.demo_simulator') }}"><span class="vb-nav-icon" aria-hidden="true">◈</span>{{ _('sim.menu') }}</a>{% endif %}
+      {% if current_user.is_admin %}<a class="vb-sidebar-link" href="{{ url_for('main.shortage_admin') }}">Pedido insuficiente</a>{% endif %}
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.user_dashboard' %} is-active{% endif %}" href="{{ url_for('main.user_dashboard') }}"><span class="vb-nav-icon" aria-hidden="true">⌂</span>{{ _('ui.panel') }}</a>
+      {% if current_user.is_admin %}
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.admin_dashboard' %} is-active{% endif %}" href="{{ url_for('main.admin_dashboard') }}"><span class="vb-nav-icon" aria-hidden="true">▦</span>{{ _('ui.admin') }}</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.commitment_management' %} is-active{% endif %}" href="{{ url_for('main.commitment_management') }}"><span class="vb-nav-icon" aria-hidden="true">◷</span>{{ _('ui.commitments') }}</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.audit_dashboard' %} is-active{% endif %}" href="{{ url_for('main.audit_dashboard') }}"><span class="vb-nav-icon" aria-hidden="true">▤</span>{{ _('ui.audit') }}</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.campaign_history' %} is-active{% endif %}" href="{{ url_for('main.campaign_history') }}"><span class="vb-nav-icon" aria-hidden="true">◴</span>{{ _('ui.history') }}</a>
+      <a class="vb-sidebar-link{% if request.endpoint == 'main.manage_limits' %} is-active{% endif %}" href="{{ url_for('main.manage_limits') }}"><span class="vb-nav-icon" aria-hidden="true">◇</span>{{ _('ui.limits') }}</a>
+      {% endif %}
+      {% if current_user.is_admin %}<a class="vb-sidebar-link{% if request.endpoint == 'translations_admin.index' %} is-active{% endif %}" href="{{ url_for('translations_admin.index') }}"><span class="vb-nav-icon" aria-hidden="true">文</span>{{ _('ui.manage_translations') }}</a>{% endif %}
+      <div class="vb-sidebar-bottom">VALBRICK <small>{{ _('ui.collective') }}</small></div>
+    </aside>
+    <div class="vb-workspace-main">
+  {% endif %}
+  <main id="main-content" class="bom-main{% if is_access_page or is_login_page %} bom-main-auth{% endif %}">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="bom-notices" aria-live="polite">
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category if category in ['success','danger','warning','info','primary','secondary'] else 'info' }} alert-dismissible fade show" role="alert">
+        {{ tm(message) }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ _('ui.close_alert') }}"></button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  {% if current_user.is_authenticated and not is_access_page and not is_login_page %}
+    </div>
+  </div>
+  {% endif %}
+  <footer class="bom-footer">VALBRICK · Brick Order Manager
+    {% if source_code_url %}
+    · <a href="{{ source_code_url }}" rel="noopener noreferrer" target="_blank">Código fuente (AGPLv3)</a>
+    {% endif %}
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

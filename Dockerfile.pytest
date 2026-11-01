@@ -1,0 +1,6 @@
+# Disposable test image only. Install pytest as root, run as non-root.
+ARG VALBRICK_BASE_IMAGE=valbrick-release-isolated
+FROM ${VALBRICK_BASE_IMAGE}
+USER root
+RUN python -m pip install --no-cache-dir -r requirements-dev.txt && python -m pip check
+USER valbrick

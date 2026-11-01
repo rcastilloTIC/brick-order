@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Ampliar mi pedido{% endblock %}
+{% block content %}
+<h1>Ampliar mi pedido durante el plazo extraordinario</h1>
+<p>Vencimiento: <strong>{{ window.deadline_at.strftime('%d/%m/%Y %H:%M') }} UTC</strong>.</p>
+<p><strong>Si no se alcanza el mínimo colectivo al finalizar el plazo, el pedido será cancelado.</strong></p>
+{% if not acknowledged %}
+<div class="alert alert-warning">Debes aceptar primero el aviso en <a href="{{ url_for('main.user_dashboard') }}">tu área personal</a>.</div>
+{% else %}
+<p>Margen económico individual disponible: <strong>{{ '%.2f'|format(margin) }} EUR</strong>.</p>
+<form method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="product_id">Referencia seleccionada</label>
+<select id="product_id" class="form-select mb-3" name="product_id" required>
+{% for product in products %}<option value="{{ product.id }}">{{ product.reference }} — {{ product.name }} ({{ '%.2f'|format(product.price or 0) }} EUR)</option>{% endfor %}
+</select>
+<label for="quantity">Unidades adicionales (solo incrementos)</label>
+<input id="quantity" class="form-control mb-3" name="quantity" type="number" min="1" max="100000" value="25" required>
+<p class="text-muted">Para las piezas económicas se exigen múltiplos de 25 unidades; para las demás, múltiplos de 10. Se validará al guardar.</p>
+<button class="btn btn-primary" type="submit" {% if not products or margin <= 0 %}disabled{% endif %}>Añadir unidades</button>
+</form>
+{% endif %}
+{% endblock %}

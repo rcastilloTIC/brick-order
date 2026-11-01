@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="container py-4">
+  <h1>Campañas anuales</h1>
+  <div class="alert alert-warning" role="alert">
+    La gestión de campañas está en migración. Los datos de participantes,
+    compromisos, referencias y pedidos todavía no están aislados por año.
+    No es seguro iniciar una campaña nueva desde esta instalación.
+  </div>
+  <div class="table-responsive">
+    <table class="table table-striped">
+      <thead><tr><th>Año</th><th>Nombre</th><th>Estado</th><th>Calendario</th></tr></thead>
+      <tbody>
+      {% for campaign in campaigns %}
+        <tr><td>{{ campaign.year }}</td><td>{{ campaign.title }}</td><td>{{ campaign.status }}</td><td><a href="{{ url_for('main.manage_campaign_calendar', campaign_id=campaign.id) }}">Ver fechas</a></td></tr>
+      {% else %}
+        <tr><td colspan="4">No hay campañas registradas todavía.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

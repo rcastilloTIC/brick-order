@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Histórico de campañas{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Histórico de campañas</h1>
+    <a class="btn btn-outline-secondary" href="{{ url_for('main.admin_dashboard') }}">Volver a administración</a>
+  </div>
+  <p><a class="btn btn-outline-primary" href="{{ url_for('main.campaign_readiness') }}">Comprobar integridad antes de activar otro año</a></p>
+  <p class="text-muted">Consulta de solo lectura. Los resultados se calculan exclusivamente con los registros de cada campaña archivada.</p>
+  {% if active_campaign %}
+  <div class="card border-warning mb-4"><div class="card-body">
+    <h2 class="h5">Archivar campaña {{ active_campaign.year }}</h2>
+    <p class="text-muted">Solo después de generar el pedido definitivo. Esta acción impide seguir trabajando en la campaña y no crea un nuevo año.</p>
+    <form method="post" action="{{ url_for('main.campaign_archive') }}" class="d-flex flex-wrap gap-2 align-items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="form-label mb-0">Escribe el año para confirmar
+        <input type="number" class="form-control" name="confirm_year" required placeholder="{{ active_campaign.year }}">
+      </label>
+      <button type="submit" class="btn btn-warning">Archivar campaña</button>
+    </form>
+  </div></div>
+  {% endif %}
+  {% if can_create_draft %}
+  <section class="card mb-4"><div class="card-body">
+    <h2 class="h5">Preparar el próximo año</h2>
+    <p class="text-muted">El borrador no activa votaciones, importaciones ni pedidos. Los datos anteriores permanecen intactos.</p>
+    <form method="post" action="{{ url_for('main.campaign_draft') }}" class="row g-3 align-items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="col-sm-3"><label class="form-label" for="draft-year">Año</label><input id="draft-year" class="form-control" name="year" type="number" min="2000" max="2200" required></div>
+      <div class="col-sm-6"><label class="form-label" for="draft-title">Nombre de la campaña</label><input id="draft-title" class="form-control" name="title" maxlength="120" required></div>
+      <div class="col-sm-3"><button class="btn btn-primary" type="submit">Crear borrador</button></div>
+    </form>
+  </div></section>
+  {% endif %}
+  {% if draft_campaigns %}
+  <div class="alert alert-warning"><strong>Campañas en preparación:</strong>
+    {% for draft in draft_campaigns %}
+    {% set check = draft_activation.get(draft.year, {}) %}
+    <div class="card bg-white text-dark mt-3"><div class="card-body">
+      <h3 class="h6">{{ draft.year }} — {{ draft.title }}</h3>
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.draft_participants', campaign_id=draft.id) }}">Importar participantes CSV</a>
+      <a class="btn btn-sm btn-outline-success" href="{{ url_for('main.draft_catalog', campaign_id=draft.id) }}">Importar catálogo Excel</a>
+      {% if check.get('blockers') %}
+      <p class="mt-3 mb-1"><strong>Pendiente antes de activar:</strong></p>
+      <ul>{% for blocker in check.blockers %}<li>{{ blocker }}</li>{% endfor %}</ul>
+      {% elif check.get('data_prepared') %}
+      <p class="mt-3">Los datos cumplen las comprobaciones previas. La activación requiere habilitación explícita y validación operativa.</p>
+      {% else %}<p class="mt-3">No hay diagnóstico suficiente para activar.</p>{% endif %}
+      {% if activation_flag_enabled and check.get('data_prepared') %}
+      <form method="post" action="{{ url_for('main.campaign_activate') }}" class="row g-2 align-items-end mt-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="year" value="{{ draft.year }}">
+        <div class="col-md-7"><label class="form-label" for="activate-{{ draft.id }}">Confirmación: escribe ACTIVAR {{ draft.year }}
+          <input id="activate-{{ draft.id }}" class="form-control" name="confirmation" required autocomplete="off" pattern="ACTIVAR {{ draft.year }}" placeholder="ACTIVAR {{ draft.year }}">
+        </label></div>
+        <div class="col-md-5"><button type="submit" class="btn btn-danger">Activar campaña {{ draft.year }}</button></div>
+      </form>
+      {% else %}<p class="small text-muted mt-2 mb-0">Activación no disponible: comprobaciones pendientes o ENABLE_ANNUAL_ACTIVATION deshabilitado.</p>{% endif %}
+    </div></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if not campaigns %}
+  <div class="alert alert-info">Todavía no hay campañas archivadas.</div>
+  {% else %}
+  <div class="table-responsive"><table class="table table-striped table-hover align-middle">
+    <thead><tr><th>Año</th><th>Campaña</th><th>Participantes</th><th>Catálogo</th><th>Seleccionadas</th><th>Votos</th><th>Líneas de pedido</th><th>Importe</th></tr></thead>
+    <tbody>{% for campaign in campaigns %}<tr>
+      <th scope="row">{{ campaign.year }}</th><td>{{ campaign.title }}</td>
+      <td>{{ campaign.members }}</td><td>{{ campaign.products }}</td><td>{{ campaign.selected }}</td>
+      <td>{{ campaign.votes }}</td><td>{{ campaign.orders }}</td>
+      <td>{% if campaign.total is none %}<span class="text-danger" title="Existen pedidos sin producto del mismo año">Datos inconsistentes</span>{% else %}{{ campaign.total }} €{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</div>
+{% endblock %}

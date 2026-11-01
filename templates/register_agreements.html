@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Registro – Acuerdos{% endblock %}
+{% block content %}
+<h2 class="mb-4">Acepta los compromisos</h2>
+{% if error %}
+  <div class="alert alert-danger">Si no se marcan todas las casillas no se puede participar en el brick order manager</div>
+{% endif %}
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="vinculacion" id="vinculacion" required>
+    <label class="form-check-label" for="vinculacion">Declaro que no tengo ninguna vinculación directa o familiar con una tienda de venta de ladrillos Lego</label>
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="asamblea" id="asamblea" required>
+    <label class="form-check-label" for="asamblea">Declaro que he participado en al menos una asamblea</label>
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="exposicion" id="exposicion" required>
+    <label class="form-check-label" for="exposicion">Declaro que he expuesto en al menos una exposición</label>
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="logistica" id="logistica" required>
+    <label class="form-check-label" for="logistica">Declaro que he colaborado al menos 10h en logística</label>
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="uso_piezas" id="uso_piezas" required>
+    <label class="form-check-label" for="uso_piezas">Me comprometo a usar las piezas pedidas para exponer durante este año o el siguiente</label>
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="no_vender" id="no_vender" required>
+    <label class="form-check-label" for="no_vender">Me comprometo a no vender las piezas</label>
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="no_comunicar" id="no_comunicar" required>
+    <label class="form-check-label" for="no_comunicar">Me comprometo a no comunicar detalles ni precios del brick order manager fuera del grupo del brick order manager</label>
+  </div>
+  <br>
+  <button type="submit" class="btn btn-primary">Siguiente</button>
+  <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Salir</a>
+</form>
+{% endblock %}

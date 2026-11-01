@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ _('insights.title') }}{% endblock %}
+{% block content %}
+<section class="insights-page">
+  <div class="insights-hero">
+    <div><span class="insights-eyebrow">VALBRICK · {{ _('insights.campaign') }} {{ campaign.year }}</span><h1>{{ _('insights.title') }}</h1><p>{{ _('insights.subtitle_personal') if insights.personal else _('insights.subtitle_admin') }}</p></div>
+    <a href="{{ url_for('main.user_dashboard') if insights.personal else url_for('main.admin_dashboard') }}" class="btn btn-outline-secondary">{{ _('insights.back') }}</a>
+  </div>
+  <div class="insights-kpis">
+    <article class="insights-kpi"><small>{{ _('insights.commitment_amount') }}</small><strong>{{ '%.2f'|format(insights.votes.amount) }} €</strong><span>{{ _('insights.votes_note') }}</span></article>
+    <article class="insights-kpi"><small>{{ _('insights.order_amount') }}</small><strong>{{ '%.2f'|format(insights.orders.amount) }} €</strong><span>{{ _('insights.orders_note') }}</span></article>
+    <article class="insights-kpi"><small>{{ _('insights.voted_refs') }}</small><strong>{{ insights.votes.refs }}</strong><span>{{ insights.votes.pieces }} {{ _('insights.pieces') }}</span></article>
+    <article class="insights-kpi"><small>{{ _('insights.ordered_refs') }}</small><strong>{{ insights.orders.refs }}</strong><span>{{ insights.orders.pieces }} {{ _('insights.pieces') }}</span></article>
+  </div>
+  {% if not insights.personal %}
+  <div class="insights-kpis insights-kpis-secondary">
+    <article class="insights-kpi"><small>{{ _('insights.participants') }}</small><strong>{{ insights.participant_total }}</strong><span>{{ insights.participants.get('approved', 0) }} {{ _('insights.approved') }}</span></article>
+    <article class="insights-kpi"><small>{{ _('insights.voters') }}</small><strong>{{ insights.voters }}</strong><span>{{ _('insights.unique_people') }}</span></article>
+    <article class="insights-kpi"><small>{{ _('insights.buyers') }}</small><strong>{{ insights.buyers }}</strong><span>{{ _('insights.unique_people') }}</span></article>
+    <article class="insights-kpi"><small>{{ _('insights.catalog') }}</small><strong>{{ insights.catalog_total }}</strong><span>{{ _('insights.available_refs') }}</span></article>
+  </div>
+  {% endif %}
+  {% if not insights.personal and insights.cutoff.available %}
+  <section class="insights-panel" aria-label="{{ _('insights.cutoff_title') }}" style="margin:1rem 0">
+    <div class="insights-panel-heading"><h2>{{ _('insights.cutoff_title') }}</h2><small>{{ _('insights.cutoff_threshold') }}: {{ insights.cutoff.threshold }} {{ _('insights.pieces') }}</small></div>
+    <p class="insights-definition">{{ _('insights.cutoff_note') }}</p>
+    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th scope="col">#</th><th scope="col">{{ _('insights.reference') }}</th><th scope="col">{{ _('insights.pieces') }}</th><th scope="col">{{ _('insights.people') }}</th><th scope="col">{{ _('insights.status') }}</th></tr></thead><tbody>
+    {% for p in insights.cutoff.nearby %}<tr><td>{{ p.position }}</td><td title="{{ p.name }}">{{ p.reference }}</td><td>{{ p.units }}</td><td>{{ p.people }}</td><td>{{ _('insights.provisional_in') if p.in_top else _('insights.provisional_out') }}</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  {% endif %}
+
+  {% if not insights.personal %}
+  <div class="insights-grid insights-advanced">
+    <section class="insights-panel">
+      <div class="insights-panel-heading"><h2>{{ _('insights82.budget') }}</h2></div>
+      {% if insights.budget.target is not none %}
+        <p>{{ _('insights82.target') }}: <strong>{{ '%.2f'|format(insights.budget.target) }} €</strong></p>
+        <p>{{ _('insights82.ordered') }}: <strong>{{ '%.2f'|format(insights.budget.current) }} €</strong></p>
+        <div class="insights-track"><div class="insights-fill" style="width:{{ [insights.budget.percentage, 100]|min }}%"></div></div>
+        <p>{{ _('insights82.remaining') }}: {{ '%.2f'|format(insights.budget.remaining) }} € · {{ '%.1f'|format(insights.budget.percentage) }}%</p>
+      {% else %}<p class="insights-empty">{{ _('insights82.no_target') }}</p>{% endif %}
+      <small>{{ _('insights82.budget_note') }}</small>
+    </section>
+    <section class="insights-panel">
+      <div class="insights-panel-heading"><h2>{{ _('insights82.timeline') }}</h2></div>
+      {% if insights.history %}
+      {% set chart_max = ([insights.votes.amount, insights.orders.amount] + insights.history|map(attribute='votes')|list + insights.history|map(attribute='orders')|list)|max %}
+      <div class="insights-trend" role="img" aria-label="{{ _('insights82.timeline') }}">
+      {% for item in insights.history[-12:] %}
+        <div class="insights-trend-point" title="{{ item.date }} · {{ '%.2f'|format(item.votes) }} € / {{ '%.2f'|format(item.orders) }} €">
+          <div class="insights-trend-bars">
+            <span class="insights-trend-votes" style="height: {{ 100 * item.votes / chart_max if chart_max else 0 }}%"></span>
+            <span class="insights-trend-orders" style="height: {{ 100 * item.orders / chart_max if chart_max else 0 }}%"></span>
+          </div>
+          <small>{{ item.date[:5] }}</small>
+        </div>
+      {% endfor %}
+      </div>
+      <p class="insights-legend">● {{ _('insights82.commitments') }} &nbsp;&nbsp; ▪ {{ _('insights82.orders') }}</p>
+      <div class="table-responsive"><table class="table table-sm"><thead><tr><th>{{ _('insights82.observed_at') }}</th><th>{{ _('insights82.commitments') }}</th><th>{{ _('insights82.orders') }}</th></tr></thead><tbody>
+      {% for item in insights.history %}<tr><td>{{ item.date }}</td><td>{{ '%.2f'|format(item.votes) }} €</td><td>{{ '%.2f'|format(item.orders) }} €</td></tr>{% endfor %}
+      </tbody></table></div>
+      {% else %}<p class="insights-empty">{{ _('insights82.no_history') }}</p>{% endif %}
+      <small>{{ _('insights82.timeline_note') }}</small>
+    </section>
+    <section class="insights-panel">
+      <div class="insights-panel-heading"><h2>{{ _('insights82.years') }}</h2></div>
+      <div class="table-responsive"><table class="table table-sm"><thead><tr><th>{{ _('insights82.year') }}</th><th>{{ _('insights82.commitments') }}</th><th>{{ _('insights82.orders') }}</th></tr></thead><tbody>
+      {% for item in insights.yearly %}<tr><td>{{ item.year }}{% if item.current %} · {{ _('insights82.active') }}{% endif %}</td><td>{% if item.observed %}{{ '%.2f'|format(item.votes) }} €{% else %}—{% endif %}</td><td>{% if item.observed %}{{ '%.2f'|format(item.orders) }} €{% else %}—{% endif %}</td></tr>{% endfor %}
+      </tbody></table></div>
+      <small>{{ _('insights82.years_note') }}</small>
+    </section>
+    <section class="insights-panel">
+      <div class="insights-panel-heading"><h2>{{ _('insights82.alerts') }}</h2></div>
+      {% if insights.cutoff.available %}
+        <p>{{ _('insights82.threshold') }}: {{ insights.cutoff.threshold }} {{ _('insights.pieces') }}</p>
+        {% for alert in insights.cutoff.alerts %}<p class="insights-alert-row"><strong>#{{ alert.position }} · {{ alert.reference }}</strong> — {{ alert.units }} {{ _('insights.pieces') }}{% if alert.position > 85 %} · {{ _('insights82.gap') }}: {{ alert.gap }}{% endif %}</p>{% endfor %}
+      {% else %}<p class="insights-empty">{{ _('insights82.no_cutoff') }}</p>{% endif %}
+      <small>{{ _('insights82.alerts_note') }}</small>
+    </section>
+  </div>
+  {% endif %}
+
+  <p class="insights-definition">{{ _('insights.disclaimer') }}</p>
+  <div class="insights-grid">
+    <section class="insights-panel"><div class="insights-panel-heading"><h2>{{ _('insights.top_votes') }}</h2><small>{{ _('insights.by_value') }}</small></div>
+      {% for item in insights.top_votes %}<div class="insights-bar-row"><div class="insights-bar-label"><b>{{ item.reference }}</b><span title="{{ item.name }}">{{ item.name }}</span><strong>{{ '%.2f'|format(item.amount) }} €</strong></div><div class="insights-track"><div class="insights-fill" style="width:{{ item.width }}%"></div></div><small>{{ item.pieces }} {{ _('insights.pieces') }}{% if not insights.personal %} · {{ item.participants }} {{ _('insights.people') }}{% endif %}</small></div>
+      {% else %}<p class="insights-empty">{{ _('insights.empty') }}</p>{% endfor %}
+    </section>
+    <section class="insights-panel"><div class="insights-panel-heading"><h2>{{ _('insights.top_orders') }}</h2><small>{{ _('insights.by_value') }}</small></div>
+      {% for item in insights.top_orders %}<div class="insights-bar-row"><div class="insights-bar-label"><b>{{ item.reference }}</b><span title="{{ item.name }}">{{ item.name }}</span><strong>{{ '%.2f'|format(item.amount) }} €</strong></div><div class="insights-track"><div class="insights-fill insights-fill-secondary" style="width:{{ item.width }}%"></div></div><small>{{ item.pieces }} {{ _('insights.pieces') }}</small></div>
+      {% else %}<p class="insights-empty">{{ _('insights.empty') }}</p>{% endfor %}
+    </section>
+    <section class="insights-panel"><div class="insights-panel-heading"><h2>{{ _('insights.groups') }}</h2><small>{{ _('insights.from_votes') }}</small></div>
+      {% for item in insights.groups %}<div class="insights-bar-row"><div class="insights-bar-label"><span>{{ item.label }}</span><strong>{{ '%.2f'|format(item.amount) }} €</strong></div><div class="insights-track"><div class="insights-fill insights-fill-violet" style="width:{{ item.width }}%"></div></div></div>
+      {% else %}<p class="insights-empty">{{ _('insights.empty') }}</p>{% endfor %}
+    </section>
+    <section class="insights-panel"><div class="insights-panel-heading"><h2>{{ _('insights.colors') }}</h2><small>{{ _('insights.from_votes') }}</small></div>
+      {% for item in insights.colors %}<div class="insights-bar-row"><div class="insights-bar-label"><span>{{ item.label }}</span><strong>{{ '%.2f'|format(item.amount) }} €</strong></div><div class="insights-track"><div class="insights-fill insights-fill-teal" style="width:{{ item.width }}%"></div></div></div>
+      {% else %}<p class="insights-empty">{{ _('insights.empty') }}</p>{% endfor %}
+    </section>
+  </div>
+</section>
+{% endblock %}

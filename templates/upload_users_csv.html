@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Subir CSV de Usuarios{% endblock %}
+{% block content %}
+<h2 class="mb-4">{% if draft %}Preparar participantes — {{ draft.year }}{% else %}Subir CSV de Usuarios{% endif %}</h2>
+{% if draft %}<div class="alert alert-warning">Solo se inscriben participantes en el borrador {{ draft.year }}. No se heredan aprobaciones ni documentos firmados. Las contraseñas de cuentas existentes se conservan.</div>{% endif %}
+<p>
+  El archivo CSV debe contener las columnas obligatorias
+  <strong>username</strong> y <strong>password</strong> (si está vacío, las cuentas nuevas utilizan la contraseña inicial configurada por el administrador). De forma opcional puedes añadir
+  <code>first_name</code>, <code>last_name</code>, <code>dni</code>, <code>declaration</code>,
+  <code>active</code>, <code>agreements</code> y <code>paid</code>.
+</p>
+<form method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="mb-3">
+    <label for="csv_file" class="form-label">Archivo CSV:</label>
+    <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Subir CSV</button>
+  <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-secondary">Volver</a>
+</form>
+{% if report %}
+  <div class="alert alert-info mt-4">
+    <strong>Resumen:</strong>
+    <ul class="mb-0">
+      <li>Total de filas procesadas: {{ report.total }}</li>
+      <li>Nuevos usuarios: {{ report.created }}</li>
+      <li>Usuarios actualizados: {{ report.updated }}</li>
+      <li>Filas omitidas: {{ report.skipped }}</li>
+    </ul>
+  </div>
+  {% if report.errors %}
+    <div class="alert alert-warning mt-3">
+      <strong>Incidencias:</strong>
+      <ul class="mb-0">
+        {% for error in report.errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

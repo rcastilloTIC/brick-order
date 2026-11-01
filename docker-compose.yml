@@ -1,0 +1,23 @@
+services:
+  app:
+    build: .
+    # Only an HTTPS reverse proxy on this host may access the app.
+    ports:
+      - "127.0.0.1:${PORT:-5001}:5001"
+    env_file: .env
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: sqlite:////data/db/app.sqlite
+      DECLARATION_UPLOAD_FOLDER: /data/declarations
+      ORDER_EXPORT_FOLDER: /data/exports
+      BACKUP_FOLDER: /data/backups
+      SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-true}"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 5001), timeout=3); s.close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    restart: unless-stopped

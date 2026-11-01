@@ -1,0 +1,1290 @@
+{% extends "base.html" %}
+{% block title %}{{ _('admin.title') }}{% endblock %}
+{% block content %}
+<div class="vb-page-head d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div><h2 class="mb-1">{{ _('admin.title') }}</h2><p class="vb-subtitle">{{ _('admin.subtitle') }}</p></div>
+  <button type="button" class="btn btn-outline-success btn-sm" id="retroToggle">{{ _('ui.retro') }}</button>
+</div>
+<div class="vb-admin-overview" aria-label="Resumen de la campaña">
+  <div class="vb-kpi"><span class="vb-kpi-icon">◷</span><div><small>{{ _('ui.campaign_status') }}</small><strong>{{ {'first':_('ui.phase1'),'second':_('ui.phase2'),'final':_('ui.final_phase'),'order':_('ui.order_phase')}.get(current_phase,_('ui.unknown')) }}</strong><span>{{ _('ui.campaign_calendar') }}</span></div></div>
+  <div class="vb-kpi"><span class="vb-kpi-icon vb-blue">▦</span><div><small>{{ _('ui.catalog') }}</small><strong>{{ pagination.total if pagination is defined and pagination else '—' }}</strong><span>{{ _('ui.catalog_refs') }}</span></div></div>
+  <div class="vb-kpi"><span class="vb-kpi-icon vb-violet">✓</span><div><small>{{ _('ui.final_order') }}</small><strong>{{ _('ui.generated') if order_finalized else _('ui.pending') }}</strong><span>{{ _('ui.materialization') }}</span></div></div>
+</div>
+{% if not order_finalized %}
+<div class="card mb-3 vb-actions-card">
+  <div class="card-header">
+    <strong>{{ _('ui.panel_actions') }}</strong>
+  </div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2">
+      <a href="{{ url_for('main.upload_data') }}" class="btn btn-outline-primary">{{ _('ui.upload_excel') }}</a>
+      <a href="{{ url_for('main.upload_users') }}" class="btn btn-outline-info">{{ _('ui.upload_users') }}</a>
+      <a href="{{ url_for('main.set_dates') }}" class="btn btn-outline-secondary">{{ _('ui.set_dates') }}</a>
+      <a href="{{ url_for('main.user_dashboard') }}" class="btn btn-outline-success">{{ _('ui.user_view') }}</a>
+      {# Botones para el cambio de fase: según current_phase se muestra el botón correspondiente #}
+      {% if current_phase == 'first' %}
+        <form action="{{ url_for('main.activate_phase2') }}" method="post" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="active_tab" value="productos">
+          <button type="submit" class="btn btn-warning">{{ _('ui.activate_phase2') }}</button>
+        </form>
+      {% elif current_phase == 'second' %}
+        <form action="{{ url_for('main.advance_phase') }}" method="post" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="active_tab" value="productos">
+          <button type="submit" class="btn btn-warning">{{ _('ui.final_phase') }}</button>
+        </form>
+      {% elif current_phase == 'final' %}
+        <form action="{{ url_for('main.advance_order_phase') }}" method="post" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="active_tab" value="ranking">
+          <button type="submit" class="btn btn-warning">{{ _('ui.release_order') }}</button>
+        </form>
+      {% elif current_phase == 'order' %}
+        <button type="button" class="btn btn-warning" disabled>{{ _('ui.active_order_phase') }}</button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+<div class="card mb-3">
+  <div class="card-header">
+    <strong>{{ _('ui.phase_status') }}</strong>
+  </div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2">
+      <span class="badge rounded-pill {{ 'text-bg-success' if current_phase == 'first' else 'text-bg-light text-dark' }}">{{ _('ui.phase1') }}</span>
+      <span class="badge rounded-pill {{ 'text-bg-success' if current_phase == 'second' else 'text-bg-light text-dark' }}">{{ _('ui.phase2') }}</span>
+      <span class="badge rounded-pill {{ 'text-bg-success' if current_phase == 'final' and not order_finalized else 'text-bg-light text-dark' }}">{{ _('ui.final_phase') }}</span>
+      <span class="badge rounded-pill {{ 'text-bg-success' if current_phase == 'order' else 'text-bg-light text-dark' }}">{{ _('ui.order_phase') }}</span>
+      <span class="badge rounded-pill {{ 'text-bg-success' if order_finalized else 'text-bg-light text-dark' }}">{{ _('ui.generated_order') }}</span>
+    </div>
+    <div class="mt-2 text-muted">
+      <div>
+        {% if current_phase == 'second' %}Disponible: pasar a fase final.{% elif current_phase == 'final' %}Disponible: ajustar ranking y liberar fase pedido.{% elif current_phase == 'order' %}Disponible: cerrar pedido.{% else %}Sigue el calendario configurado.{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card mb-3">
+  <div class="card-header">
+    <button class="btn btn-link text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#adminRiskyActions" aria-expanded="false" aria-controls="adminRiskyActions">
+      <strong>Acciones sensibles</strong>
+    </button>
+  </div>
+  <div class="collapse" id="adminRiskyActions">
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-2">
+        <form action="{{ url_for('main.clean_data') }}" method="post" class="d-inline" onsubmit="return confirm('¿Seguro que deseas limpiar los datos del año anterior?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="active_tab" value="productos">
+          <button type="submit" class="btn btn-danger">Limpiar datos del año anterior</button>
+        </form>
+        {% if test_mode_enabled %}
+          <form action="{{ url_for('main.toggle_test_mode') }}" method="post" class="d-inline" onsubmit="return confirm('Al desactivar el modo de pruebas se borrarán los votos y pedidos actuales. ¿Deseas continuar?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="active_tab" value="productos">
+            <input type="hidden" name="enable" value="0">
+            <button type="submit" class="btn btn-outline-warning">Desactivar modo de pruebas</button>
+          </form>
+        {% else %}
+          <form action="{{ url_for('main.toggle_test_mode') }}" method="post" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="active_tab" value="productos">
+            <input type="hidden" name="enable" value="1">
+            <button type="submit" class="btn btn-outline-warning">Activar modo de pruebas</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card mb-3">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <button class="btn btn-link text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#phaseBackupsCollapse" aria-expanded="false" aria-controls="phaseBackupsCollapse">
+      <strong>Copias de seguridad por fases</strong>
+    </button>
+    <small class="text-muted">Restaurar fuerza la fase indicada en el manifest.</small>
+  </div>
+  <div class="collapse" id="phaseBackupsCollapse">
+    <div class="card-body">
+    <p class="mb-3">
+      Último backup:
+      {% if last_backup.file %}
+        <strong>{{ last_backup.phase or "?" }} → {{ last_backup.target_phase or "?" }}</strong>
+        {% if last_backup.created_at %}- {{ last_backup.created_at }}{% endif %}
+      {% else %}
+        <span class="text-muted">Sin copias registradas.</span>
+      {% endif %}
+    </p>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <form action="{{ url_for('main.create_backup') }}" method="post" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="phase_at_backup" value="{{ last_backup.phase or current_phase }}">
+        <input type="hidden" name="target_phase" value="{{ last_backup.target_phase or current_phase }}">
+        <button type="submit" class="btn btn-outline-primary">Crear backup manual</button>
+      </form>
+      {% if last_backup.file %}
+        <a class="btn btn-outline-secondary" href="{{ url_for('main.download_backup') }}">Descargar último backup</a>
+      {% endif %}
+      {% if last_backup.error_log %}
+        <a class="btn btn-outline-danger" href="{{ url_for('main.download_backup_log') }}">Descargar log de error</a>
+      {% endif %}
+    </div>
+    <div class="alert alert-info mb-0">
+      <strong>Restauracion segura:</strong> por seguridad no se restaura una base SQLite mientras hay usuarios conectados.
+      Descarga el backup y ejecuta <code>sh scripts/restore_offline.sh RUTA_DEL_BACKUP.zip</code>
+      en el servidor, con Docker disponible. El script detiene la aplicacion, valida los datos y conserva
+      la copia anterior para recuperacion. No borres el directorio <code>data/</code>.
+    </div>
+    </div>
+  </div>
+</div>
+{% if test_mode_enabled %}
+  <div class="alert alert-info">
+    <strong>Modo de pruebas activo.</strong> Límite fase 1: {{ active_limits.max_refs_phase_one }} referencias y {{ "%.2f"|format(active_limits.phase_one_order_limit) }} €. Límite fase 2: {{ active_limits.max_refs_phase_two }} referencias totales. Selección final: {{ active_limits.final_selection_limit }} referencias más votadas. Las referencias promovidas desde este panel se siguen respetando.
+  </div>
+{% endif %}
+
+{% if current_phase in ['final', 'order'] or order_generated_at %}
+  <div class="card mb-3">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span><strong>{{ _('ui.final_order') }}</strong></span>
+      {% if order_generated_at %}
+        <span class="badge bg-success">Generado {{ order_generated_at }}</span>
+      {% endif %}
+    </div>
+    <div class="card-body">
+      <p>
+        Total promovido: <strong>{{ "%.2f"|format(promoted_total) }} €</strong> (mínimo {{ "%.2f"|format(min_total) }} €).
+        {% if order_threshold_met %}
+          <span class="badge bg-success">Umbral alcanzado</span>
+        {% else %}
+          <span class="badge bg-warning text-dark">Pendiente de umbral</span>
+        {% endif %}
+      </p>
+      <p>
+        Impuestos configurados: <strong>{{ "%.2f"|format(order_tax_input) }} %</strong> (≈ {{ "%.2f"|format(order_tax_value_preview) }} € sobre el total actual).
+        Transporte previsto: <strong>{{ "%.2f"|format(order_shipping_input) }} €</strong>.
+      </p>
+      {% if final_order_summary and final_order_summary.products %}
+        <div class="table-responsive mb-3">
+          <table class="table table-sm align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Referencia</th>
+                <th>Nombre</th>
+                <th>Cantidad</th>
+                <th>Importe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in final_order_summary.products %}
+                <tr>
+                  <td>{{ entry.product.reference }}</td>
+                  <td>{{ entry.product.name }}</td>
+                  <td>{{ entry.total_quantity }}</td>
+                  <td>{{ "%.2f"|format(entry.total_amount) }} €</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="mb-4">
+          Referencias promovidas: {{ final_order_summary.product_count }} |
+          Participantes: {{ final_order_summary.participant_count }}
+        </p>
+      {% else %}
+        <div class="alert alert-warning">
+          No hay referencias promovidas con votos para el pedido final.
+        </div>
+      {% endif %}
+
+      <form class="row gy-2 gx-3 align-items-end mb-3" method="post" action="{{ url_for('main.update_order_costs') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="active_tab" value="productos">
+        <div class="col-sm-3">
+          <label class="form-label">Impuestos (%)</label>
+          <input type="number" step="0.01" min="0" name="tax_amount" class="form-control" value="{{ '%.2f'|format(order_tax_input) }}" {% if order_finalized %}disabled{% endif %}>
+        </div>
+        <div class="col-sm-3">
+          <label class="form-label">Transporte (€)</label>
+          <input type="number" step="0.01" min="0" name="shipping_amount" class="form-control" value="{{ '%.2f'|format(order_shipping_input) }}" {% if order_finalized %}disabled{% endif %}>
+        </div>
+        <div class="col-sm-3">
+          <button type="submit" class="btn btn-outline-primary w-100" {% if order_finalized %}disabled{% endif %}>Guardar costes</button>
+        </div>
+        {% if last_order_tax or last_order_shipping %}
+          <div class="col-12">
+            <small class="text-muted">Último pedido generado con {{ '%.2f'|format(last_order_tax) }} € en impuestos y {{ '%.2f'|format(last_order_shipping) }} € de transporte.</small>
+          </div>
+        {% endif %}
+      </form>
+
+      <form method="post" action="{{ url_for('main.generate_order_exports') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="active_tab" value="productos">
+        <button type="submit" class="btn btn-primary" {% if not order_action_enabled or order_finalized %}disabled{% endif %}>Realizar pedido</button>
+        {% if order_finalized %}
+          <small class="text-muted ms-2">El pedido final ya fue generado.</small>
+        {% elif not order_threshold_met and not test_mode_enabled %}
+          <small class="text-muted ms-2">Debes alcanzar {{ '%.2f'|format(min_total) }} € para activar el pedido.</small>
+        {% endif %}
+        {% if final_order_summary and not final_order_summary.products %}
+          <small class="text-muted ms-2">Añade referencias promovidas con votos para poder generar el pedido.</small>
+        {% endif %}
+      </form>
+      {% if order_finalized %}
+        <form method="post" action="{{ url_for('main.regenerate_order_exports') }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-outline-secondary mt-2">Regenerar archivos</button>
+        </form>
+      {% endif %}
+
+      {% if order_generated_at %}
+        <div class="alert alert-success mt-3">
+          Archivos disponibles:
+          {% if order_files.excel %}
+            <a class="btn btn-sm btn-outline-primary ms-2" href="{{ url_for('main.download_order_file', kind='excel') }}">Excel global</a>
+          {% endif %}
+          {% if order_files.piece_pdf %}
+            <a class="btn btn-sm btn-outline-secondary ms-2" href="{{ url_for('main.download_order_file', kind='piece') }}">ZIP por pieza</a>
+          {% endif %}
+          {% if order_files.user_pdf %}
+            <a class="btn btn-sm btn-outline-secondary ms-2" href="{{ url_for('main.download_order_file', kind='user') }}">ZIP por usuario</a>
+          {% endif %}
+        </div>
+        <div class="card mt-3">
+          <div class="card-header"><strong>Datos para el pago</strong></div>
+          <div class="card-body">
+            <form method="post" action="{{ url_for('main.update_order_payment_details') }}" class="row gy-2 gx-3 align-items-end">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="active_tab" value="productos">
+              <div class="col-sm-6">
+                <label class="form-label">IBAN</label>
+                <input type="text" class="form-control" name="payment_iban" value="{{ order_payment_iban }}" placeholder="ES00 0000 0000 0000 0000 0000" required>
+              </div>
+              <div class="col-sm-3">
+                <label class="form-label">Fecha limite</label>
+                <input type="date" class="form-control" name="payment_due_date" value="{{ order_payment_due_date }}" required>
+              </div>
+              <div class="col-sm-3">
+                <button type="submit" class="btn btn-outline-primary w-100">Guardar datos de pago</button>
+              </div>
+            </form>
+            <small class="text-muted d-block mt-2">Al guardar se validan el IBAN y la fecha, y se regeneran automaticamente los archivos del pedido para incluir estos datos en los PDFs de usuario.</small>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  {% if not order_finalized %}
+    <form method="post" action="{{ url_for('main.promote_all_products') }}" class="mb-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="active_tab" value="productos">
+      <button type="submit" class="btn btn-outline-primary">Promover todas las piezas con votos</button>
+    </form>
+  {% endif %}
+{% endif %}
+
+{% if current_phase in ['final'] and final_context %}
+  <div class="alert alert-info">
+    <strong>Selección final:</strong>
+    {{ final_context.selected_count }}/{{ final_context.limit }} referencias.
+    {% if final_context.over_limit %}
+      <span class="badge bg-danger ms-2">Sobre el límite</span>
+    {% endif %}
+  </div>
+  {% if final_context.tie_breakers %}
+    <div class="alert alert-warning">
+      <strong>Empates pendientes:</strong>
+      Marca manualmente una referencia promovida o anula otra para resolver el empate.
+      <ul class="mb-0 mt-2">
+        {% for item in final_context.tie_breakers %}
+          <li>{{ item.reference }} - {{ item.name }} ({{ item.total_quantity }} uds, {{ item.num_votes }} votos)</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+{% endif %}
+
+<!-- Pestañas de navegación -->
+<ul class="nav nav-tabs" id="adminTab" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="productos-tab" data-bs-toggle="tab" data-bs-target="#productos" type="button" role="tab" aria-controls="productos" aria-selected="true">Productos</button>
+  </li>
+  {% if current_phase in ['final'] %}
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="ranking-tab" data-bs-toggle="tab" data-bs-target="#ranking" type="button" role="tab" aria-controls="ranking" aria-selected="false">Ranking</button>
+  </li>
+  {% endif %}
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="usuarios-tab" data-bs-toggle="tab" data-bs-target="#usuarios" type="button" role="tab" aria-controls="usuarios" aria-selected="false">Usuarios</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="colores-tab" data-bs-toggle="tab" data-bs-target="#colores" type="button" role="tab" aria-controls="colores" aria-selected="false">Colores</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="pedidos-tab" data-bs-toggle="tab" data-bs-target="#pedidos" type="button" role="tab" aria-controls="pedidos" aria-selected="false">Pedidos</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button" role="tab" aria-controls="logs" aria-selected="false">Logs</button>
+  </li>
+
+  <li class="nav-item ms-auto" role="presentation">
+    <button class="nav-link" id="columnas-admin-tab" data-bs-toggle="tab" data-bs-target="#columnas-admin" type="button" role="tab" aria-controls="columnas-admin" aria-selected="false">{{ _('ui.configure_columns') }}</button>
+  </li>
+</ul>
+<div class="tab-content" id="adminTabContent">
+  {% if current_phase in ['final'] and ranking_context %}
+  <div class="tab-pane fade" id="ranking" role="tabpanel" aria-labelledby="ranking-tab">
+    <details class="card mb-3 mt-3">
+      <summary class="card-header d-flex justify-content-between align-items-center">
+        <span>{{ _('ranking.title') }}</span>
+      </summary>
+      <div class="card-body">
+        <p class="text-muted mb-0">Revisa la selección antes de confirmar el pedido final. Las piezas descartadas pasan al final y puedes restaurarlas.</p>
+      </div>
+    </details>
+    {% if current_phase == 'final' %}
+      <form method="post" action="{{ url_for('main.advance_order_phase') }}" class="mb-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="active_tab" value="ranking">
+        <button type="submit" class="btn btn-success">{{ _('ui.release_order') }}</button>
+      </form>
+    {% endif %}
+    <div class="table-responsive">
+      <table class="table table-bordered table-sm">
+        <thead class="table-dark">
+          <tr>
+            <th>Posición</th>
+            <th>Imagen</th>
+            <th>Referencia</th>
+            <th>Nombre</th>
+            <th>Color BL</th>
+            <th>Votos</th>
+            <th>Cantidad</th>
+            <th>Importe</th>
+            <th>Score</th>
+            <th>Estado</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in ranking_context.rows %}
+          <tr class="{% if row.is_locked %}table-warning{% elif row.is_disabled %}table-secondary{% elif row.within_limit %}table-success{% endif %}">
+            <td>{{ row.position }}</td>
+            <td>
+              {% if row.image_url %}
+                <img src="{{ row.image_url }}" alt="{{ row.name }}" class="img-thumbnail" width="50">
+              {% else %}
+                <span class="text-muted small">Sin imagen</span>
+              {% endif %}
+            </td>
+            <td>{{ row.reference }}</td>
+            <td>{{ row.name }}</td>
+            <td>{{ row.color_bl or '-' }}</td>
+            <td>{{ row.votes }}</td>
+            <td>{{ row.qty_total }}</td>
+            <td>{{ '%.2f'|format(row.amount_total) }} €</td>
+            <td>{{ '%.4f'|format(row.score) }}</td>
+            <td>
+              {% if row.is_disabled %}
+                <span class="badge bg-secondary">Descartada</span>
+              {% elif row.is_locked %}
+                <span class="badge bg-warning text-dark">Bloqueada</span>
+              {% elif row.within_limit %}
+                <span class="badge bg-success">Dentro de 85</span>
+              {% else %}
+                <span class="badge bg-light text-dark">Fuera de 85</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if order_finalized %}
+                <span class="text-muted">Bloqueado</span>
+              {% else %}
+                <form method="post" action="{{ url_for('main.toggle_final_status') }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="product_id" value="{{ row.id }}">
+                  <input type="hidden" name="active_tab" value="ranking">
+                  <input type="hidden" name="action" value="final_disabled">
+                  <input type="hidden" name="state" value="{{ 0 if row.is_disabled else 1 }}">
+                  {% if row.is_disabled %}
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Restaurar</button>
+                  {% else %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Descartar</button>
+                  {% endif %}
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Pestaña Productos -->
+  <div class="tab-pane fade show active" id="productos" role="tabpanel" aria-labelledby="productos-tab">
+    <div class="vb-section-heading"><div><h3>Listado de Productos</h3><p>Busca y gestiona las referencias del catálogo.</p></div></div>
+    
+    <!-- Formulario de búsqueda y filtros -->
+    <form id="filtersForm" class="row gy-2 gx-3 align-items-center mb-3 vb-filters" method="get" action="{{ url_for('main.admin_dashboard') }}">
+      <div class="col-auto">
+        <input type="text" class="form-control" name="reference" placeholder="Buscar por referencia" value="{{ reference_search }}">
+      </div>
+      <div class="col-auto">
+        <input type="text" class="form-control" name="name" placeholder="Buscar por nombre" value="{{ name_search }}">
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="colourDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+          {% if colour_filter %}{{ colour_filter_label }}{% else %}Color{% endif %}
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="colourDropdown" style="max-height: 300px; overflow-y: auto;">
+          <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); selectColour('');">Mostrar todos</a></li>
+          {% for option in colour_options %}
+            <li><a class="dropdown-item{% if option.value == colour_filter %} active{% endif %}" href="#" onclick="event.preventDefault(); selectColour('{{ option.value }}');">{{ option.label }}</a></li>
+          {% endfor %}
+        </ul>
+        <input type="hidden" id="colour" name="colour" value="{{ colour_filter }}">
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="mainGroupTopDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+          {% if main_group_top_filter %}{{ main_group_top_filter }}{% else %}Main Group Top{% endif %}
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="mainGroupTopDropdown" style="max-height: 300px; overflow-y: auto;">
+          <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); selectMainGroupTop('');">Mostrar todos</a></li>
+          {% for option in main_group_top_options %}
+            <li><a class="dropdown-item{% if option == main_group_top_filter %} active{% endif %}" href="#" onclick="event.preventDefault(); selectMainGroupTop('{{ option }}');">{{ option }}</a></li>
+          {% endfor %}
+        </ul>
+        <input type="hidden" id="main_group_top" name="main_group_top" value="{{ main_group_top_filter }}">
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="mainGroupDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+          {% if main_group_filter %}{{ main_group_filter }}{% else %}Main Group{% endif %}
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="mainGroupDropdown" style="max-height: 300px; overflow-y: auto;">
+          <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); selectMainGroup('');">Mostrar todos</a></li>
+          {% for option in main_group_options %}
+            <li><a class="dropdown-item{% if option == main_group_filter %} active{% endif %}" href="#" onclick="event.preventDefault(); selectMainGroup('{{ option }}');">{{ option }}</a></li>
+          {% endfor %}
+        </ul>
+        <input type="hidden" id="main_group" name="main_group" value="{{ main_group_filter }}">
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="mainGroupSubDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+          {% if main_group_sub_filter %}{{ main_group_sub_filter }}{% else %}Main Group Sub{% endif %}
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="mainGroupSubDropdown" style="max-height: 300px; overflow-y: auto;">
+          <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); selectMainGroupSub('');">Mostrar todos</a></li>
+          {% for option in main_group_sub_options %}
+            <li><a class="dropdown-item{% if option == main_group_sub_filter %} active{% endif %}" href="#" onclick="event.preventDefault(); selectMainGroupSub('{{ option }}');">{{ option }}</a></li>
+          {% endfor %}
+        </ul>
+        <input type="hidden" id="main_group_sub" name="main_group_sub" value="{{ main_group_sub_filter }}">
+      </div>
+      <div class="col-auto">
+        <select class="form-select" name="present">
+          <option value="">{{ _('ui.all') }}</option>
+          <option value="new" {% if present_filter|lower in ['new', 'no', 'false', '0'] %}selected{% endif %}>Sólo nuevas</option>
+          <option value="2025" {% if present_filter|lower in ['2025', 'yes', 'si', 'true', '1'] %}selected{% endif %}>Sólo las de 2025</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <select class="form-select" name="price_order">
+          <option value="">{{ _('ui.sort_price') }}</option>
+          <option value="asc" {% if price_order == 'asc' %}selected{% endif %}>Menor a mayor</option>
+          <option value="desc" {% if price_order == 'desc' %}selected{% endif %}>Mayor a menor</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary">{{ _('ui.filter') }}</button>
+      </div>
+      <div class="col-auto">
+        <a class="btn btn-outline-secondary" href="{{ url_for('main.admin_dashboard') }}">{{ _('ui.clear') }}</a>
+      </div>
+      {% if current_phase == 'second' %}
+      <div class="col-auto">
+        <button type="button" class="btn {% if votes_only == '1' %}btn-success{% else %}btn-outline-success{% endif %}" id="votesOnlyToggle">
+          {% if votes_only == '1' %}Mostrar todas{% else %}Solo con votos{% endif %}
+        </button>
+        <input type="hidden" name="votes_only" id="votes_only" value="{{ votes_only }}">
+      </div>
+      {% endif %}
+      <input type="hidden" name="per_page" value="{{ per_page }}">
+    </form>
+    
+    <!-- Paginación superior -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center mb-0">
+        {% if pagination.has_prev %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('main.admin_dashboard', page=pagination.prev_num, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order) }}" aria-label="Anterior">
+              <span aria-hidden="true">&laquo;</span>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled">
+            <span class="page-link">&laquo;</span>
+          </li>
+        {% endif %}
+        {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+          {% if p %}
+            {% if p == pagination.page %}
+              <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% else %}
+            <li class="page-item"><a class="page-link" href="{{ url_for('main.admin_dashboard', page=p, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order) }}">{{ p }}</a></li>
+            {% endif %}
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          {% endif %}
+        {% endfor %}
+        {% if pagination.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('main.admin_dashboard', page=pagination.next_num, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order) }}" aria-label="Siguiente">
+              <span aria-hidden="true">&raquo;</span>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled">
+            <span class="page-link">&raquo;</span>
+          </li>
+        {% endif %}
+        </ul>
+      </nav>
+      <form method="get" action="{{ url_for('main.admin_dashboard') }}" class="d-flex align-items-center gap-2">
+        <input type="hidden" name="reference" value="{{ reference_search }}">
+        <input type="hidden" name="name" value="{{ name_search }}">
+        <input type="hidden" name="colour" value="{{ colour_filter }}">
+        <input type="hidden" name="main_group_top" value="{{ main_group_top_filter }}">
+        <input type="hidden" name="main_group" value="{{ main_group_filter }}">
+        <input type="hidden" name="main_group_sub" value="{{ main_group_sub_filter }}">
+        <input type="hidden" name="present" value="{{ present_filter }}">
+        <input type="hidden" name="price_order" value="{{ price_order }}">
+        {% if current_phase == 'second' %}
+          <input type="hidden" name="votes_only" value="{{ votes_only }}">
+        {% endif %}
+        <label for="perPageAdmin" class="form-label mb-0">{{ _('ui.per_page') }}</label>
+        <select id="perPageAdmin" name="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+          <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+          <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+          <option value="200" {% if per_page == 200 %}selected{% endif %}>200</option>
+        </select>
+      </form>
+    </div>
+    
+    <!-- Tabla de productos -->
+    <div class="table-responsive">
+      <table class="table table-striped table-hover pieces-table">
+        <thead class="table-dark">
+          <tr>
+            <th>Nº</th>
+        <th>ID</th>
+            <th>Imagen</th>
+            <th>Referencia</th>
+            <th>Nombre</th>
+            <th>Color</th>
+            <th>Color BL</th>
+            <th>Main Group Top</th>
+            <th>Main Group</th>
+            <th>Main Group Sub</th>
+            <th>Presente 2025</th>
+            <th>Bloqueado</th>
+            <th>Precio</th>
+            <th>{{ _('ui.total_pieces') }}</th>
+            <th>{{ _('ui.total_amount') }}</th>
+            <th>Nº de Votos</th>
+            <th>Selección Final</th>
+            {% if current_phase in ['final'] %}
+              <th>Anular (Final)</th>
+              <th>Promover (Final)</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in products %}
+          <tr class="{% if product.is_locked %}table-warning{% endif %}">
+            <td>{{ loop.index0 + 1 + ((pagination.page - 1) * per_page) }}</td>
+            <td>{{ product.id }}</td>
+            <td>
+              {% if product.image_url %}
+                <img src="{{ product.image_url }}" alt="{{ product.name }}" class="img-thumbnail" width="75">
+              {% else %}
+                <span class="text-muted">Sin imagen</span>
+              {% endif %}
+            </td>
+            <td>{{ product.reference }}</td>
+            <td>{{ product.name }}</td>
+            <td>{{ product.colour_id }}</td>
+            <td>{{ product.color_bl or '-' }}</td>
+            <td>{{ product.main_group_top }}</td>
+            <td>{{ product.main_group }}</td>
+            <td>{{ product.main_group_sub }}</td>
+            <td>{{ 'Sí' if product.present_in_2025 else 'No' }}</td>
+            <td>
+              <!-- Formulario para marcar o desmarcar bloqueo -->
+              <form method="post" action="{{ url_for('main.toggle_lock') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="product_id" value="{{ product.id }}">
+                <input type="hidden" name="active_tab" value="productos">
+                <input type="hidden" name="state" value="{{ 1 if product.is_locked else 0 }}">
+                <input type="checkbox" {% if product.is_locked %}checked{% endif %} {% if order_finalized %}disabled{% endif %} onchange="const stateInput = this.form.querySelector('input[name=state]'); stateInput.value = this.checked ? '1' : '0'; this.form.submit();">
+              </form>
+            </td>
+            <td>
+              {% if product.price is not none %}
+                {{ "%.2f"|format(product.price) }} €
+              {% else %}
+                N/A
+              {% endif %}
+            </td>
+            {% set agg = aggregates.get(product.id) %}
+            <td>{{ agg.total_quantity if agg and agg.total_quantity else 0 }}</td>
+            <td>
+              {% if agg and agg.total_amount %}
+                {{ "%.2f"|format(agg.total_amount) }} €
+              {% else %}
+                0.00 €
+              {% endif %}
+            </td>
+            <td>{{ agg.num_votes if agg and agg.num_votes else 0 }}</td>
+            <td>
+              {% if product.final_selected %}
+                <span class="badge bg-success">Seleccionada</span>
+              {% elif product.final_disabled %}
+                <span class="badge bg-danger">Anulada</span>
+              {% elif product.final_promoted %}
+                <span class="badge bg-primary">Promovida</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ _('ui.pending') }}</span>
+              {% endif %}
+            </td>
+            {% if current_phase in ['final'] %}
+              <td>
+                <!-- Checkbox para anular la referencia final -->
+                <form method="post" action="{{ url_for('main.toggle_final_status') }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="product_id" value="{{ product.id }}">
+                  <input type="hidden" name="active_tab" value="productos">
+                  <input type="hidden" name="action" value="final_disabled">
+                  <input type="hidden" name="state" value="{{ 1 if product.final_disabled else 0 }}">
+                  <input type="checkbox" {% if product.final_disabled %}checked{% endif %} {% if order_finalized %}disabled{% endif %} onchange="const stateInput = this.form.querySelector('input[name=state]'); stateInput.value = this.checked ? '1' : '0'; this.form.submit();">
+                </form>
+              </td>
+              <td>
+                <!-- Checkbox para promover la referencia final -->
+                <form method="post" action="{{ url_for('main.toggle_final_status') }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="product_id" value="{{ product.id }}">
+                  <input type="hidden" name="active_tab" value="productos">
+                  <input type="hidden" name="action" value="final_promoted">
+                  <input type="hidden" name="state" value="{{ 1 if product.final_promoted else 0 }}">
+                  <input type="checkbox" {% if product.final_promoted %}checked{% endif %} {% if order_finalized %}disabled{% endif %} onchange="const stateInput = this.form.querySelector('input[name=state]'); stateInput.value = this.checked ? '1' : '0'; this.form.submit();">
+                </form>
+              </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Paginación inferior (igual a la superior) -->
+    <nav aria-label="Page navigation">
+      <ul class="pagination justify-content-center">
+        {% if pagination.has_prev %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('main.admin_dashboard', page=pagination.prev_num, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order) }}" aria-label="Anterior">
+              <span aria-hidden="true">&laquo;</span>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled">
+            <span class="page-link">&laquo;</span>
+          </li>
+        {% endif %}
+        {% for p in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+          {% if p %}
+            {% if p == pagination.page %}
+              <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% else %}
+              <li class="page-item"><a class="page-link" href="{{ url_for('main.admin_dashboard', page=p, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order) }}">{{ p }}</a></li>
+            {% endif %}
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          {% endif %}
+        {% endfor %}
+        {% if pagination.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('main.admin_dashboard', page=pagination.next_num, per_page=per_page, reference=reference_search, name=name_search, colour=colour_filter, main_group_top=main_group_top_filter, main_group=main_group_filter, main_group_sub=main_group_sub_filter, present=present_filter, price_order=price_order) }}" aria-label="Siguiente">
+              <span aria-hidden="true">&raquo;</span>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled">
+            <span class="page-link">&raquo;</span>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  
+  <!-- Pestaña Usuarios -->
+  <div class="tab-pane fade" id="usuarios" role="tabpanel" aria-labelledby="usuarios-tab">
+    <h3 class="mt-3">Listado de Usuarios</h3>
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>Usuario</th>
+            <th>Nombre</th>
+            <th>Apellidos</th>
+            <th>Declaración</th>
+            <th>Pagado</th>
+            <th>Documento</th>
+            <th>Acceso</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          <tr>
+            <td>{{ user.username }}</td>
+            <td>{{ user.first_name if user.first_name else 'Pendiente' }}</td>
+            <td>{{ user.last_name if user.last_name else 'Pendiente' }}</td>
+            <td>
+              {% if user.declaration_validated %}
+                <span class="badge bg-success">Validada</span>
+              {% elif user.declaration_file %}
+                <span class="badge bg-warning text-dark">En revisión</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ _('ui.pending') }}</span>
+              {% endif %}
+            </td>
+            <td>{{ 'Sí' if user.paid else 'No' }}</td>
+            <td class="text-center">
+              {% if user.declaration_file %}
+                <a href="{{ url_for('main.download_declaration', user_id=user.id) }}" title="Descargar declaración" target="_blank" rel="noopener">
+                  <img src="{{ url_for('static', filename='pdf.png') }}" alt="PDF" width="18" height="18">
+                </a>
+              {% else %}
+                <span class="text-muted">N/A</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge {% if user.active %}bg-success{% else %}bg-danger{% endif %}">{{ 'Activo' if user.active else 'Bloqueado' }}</span>
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('main.validate_declaration') }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="user_id" value="{{ user.id }}">
+                <input type="hidden" name="active_tab" value="usuarios">
+                <button type="submit" class="btn btn-sm {% if user.declaration_validated %}btn-outline-success{% else %}btn-success{% endif %}" {% if user.declaration_validated or not user.declaration_file %}disabled{% endif %}>Validar DJ</button>
+              </form>
+              <form method="post" action="{{ url_for('main.invalidate_declaration') }}" class="d-inline ms-1">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="user_id" value="{{ user.id }}">
+                <input type="hidden" name="active_tab" value="usuarios">
+                <button type="submit" class="btn btn-sm btn-outline-danger" {% if not user.declaration_file %}disabled{% endif %}>Invalidar DJ</button>
+              </form>
+              <form method="post" action="{{ url_for('main.delete_declaration') }}" class="d-inline ms-1">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="user_id" value="{{ user.id }}">
+                <input type="hidden" name="active_tab" value="usuarios">
+                <button type="submit" class="btn btn-sm btn-outline-secondary" {% if not user.declaration_file %}disabled{% endif %}>Eliminar DJ</button>
+              </form>
+              <form method="post" action="{{ url_for('main.toggle_user_active') }}" class="d-inline ms-1">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="user_id" value="{{ user.id }}">
+                <input type="hidden" name="active_tab" value="usuarios">
+                <input type="hidden" name="desired_state" value="{{ 0 if user.active else 1 }}">
+                <button type="submit" class="btn btn-sm {% if user.active %}btn-warning{% else %}btn-outline-success{% endif %}">
+                  {% if user.active %}Bloquear{% else %}Desbloquear{% endif %}
+                </button>
+              </form>
+              <form method="post" action="{{ url_for('main.toggle_user_admin') }}" class="d-inline ms-1">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="user_id" value="{{ user.id }}">
+                <input type="hidden" name="active_tab" value="usuarios">
+                <input type="hidden" name="desired_state" value="{{ 0 if user.is_admin else 1 }}">
+                <button type="submit" class="btn btn-sm {% if user.is_admin %}btn-outline-danger{% else %}btn-outline-secondary{% endif %}">
+                  {% if user.is_admin %}Quitar admin{% else %}Dar admin{% endif %}
+                </button>
+              </form>
+              <form method="post" action="{{ url_for('main.reset_user_password') }}" class="d-inline ms-1">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="user_id" value="{{ user.id }}">
+                <input type="hidden" name="active_tab" value="usuarios">
+                <button type="submit" class="btn btn-sm btn-outline-primary">Resetear contraseña</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <!-- Pestaña Colores -->
+  <div class="tab-pane fade" id="colores" role="tabpanel" aria-labelledby="colores-tab">
+    <h3 class="mt-3">Gestor de colores</h3>
+    <p class="text-muted">Configura el color BL que corresponde a cada color del Excel.</p>
+    {% if color_overview %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Color (Excel)</th>
+              <th>Color BL</th>
+              <th>Actualizar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in color_overview %}
+              <tr>
+                <td>{{ row.lego_name }}</td>
+                <td>{{ row.bl_name or '-' }}</td>
+                <td>
+                  <form method="post" action="{{ url_for('main.update_color_map') }}" class="d-flex flex-wrap gap-2 align-items-center">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="lego_name" value="{{ row.lego_name }}">
+                    <input type="hidden" name="active_tab" value="colores">
+                    <input type="text" class="form-control form-control-sm" name="bl_name" placeholder="Color BL" value="{{ row.bl_name or '' }}">
+                    <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert alert-info">No hay colores cargados todavía.</div>
+    {% endif %}
+    <div class="card mt-3">
+      <div class="card-header"><strong>Añadir color manual</strong></div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('main.update_color_map') }}" class="row gy-2 gx-3 align-items-end">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="active_tab" value="colores">
+          <div class="col-sm-4">
+            <label class="form-label">Color (Excel)</label>
+            <input type="text" class="form-control form-control-sm" name="lego_name" required>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label">Color BL</label>
+            <input type="text" class="form-control form-control-sm" name="bl_name">
+          </div>
+          <div class="col-sm-4">
+            <button type="submit" class="btn btn-sm btn-outline-primary w-100">Confirmar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <!-- Pestaña Pedidos -->
+  <div class="tab-pane fade" id="pedidos" role="tabpanel" aria-labelledby="pedidos-tab">
+    <h3 class="mt-3">Pedidos por usuario</h3>
+    <p class="text-muted">Consulta y ajusta las referencias pedidas por cada usuario. Los cambios se guardan inmediatamente.</p>
+    {% if global_order_summary.references %}
+      <div class="card mb-4">
+        <div class="card-header">
+          <button class="btn btn-link text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#globalOrdersCollapse" aria-expanded="true" aria-controls="globalOrdersCollapse">
+            <strong>Resumen global de referencias pedidas</strong>
+          </button>
+        </div>
+        <div class="collapse show" id="globalOrdersCollapse">
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Nº</th>
+                    <th>Imagen</th>
+                    <th>Referencia</th>
+                    <th>Nombre</th>
+                    <th>Nº de votos</th>
+                    <th>Cantidad total</th>
+                    <th>Importe total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for ref in global_order_summary.references %}
+                    <tr>
+                      <td>{{ loop.index }}</td>
+                      <td>
+                        {% if ref.image_url %}
+                          <img src="{{ ref.image_url }}" alt="{{ ref.name }}" class="img-thumbnail" width="50">
+                        {% else %}
+                          <span class="text-muted small">Sin imagen</span>
+                        {% endif %}
+                      </td>
+                      <td>{{ ref.reference }}</td>
+                      <td>{{ ref.name }}</td>
+                      <td>{{ ref.num_votes }}</td>
+                      <td>{{ ref.total_quantity }}</td>
+                      <td>{{ '%.2f'|format(ref.total_amount) }} €</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div class="text-end fw-bold">
+              Total del pedido: {{ '%.2f'|format(global_order_summary.total_amount) }} €
+            </div>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="alert alert-info">Todavía no hay referencias pedidas.</div>
+    {% endif %}
+    {% if user_order_overview %}
+      <div class="accordion" id="ordersAccordion">
+        {% for summary in user_order_overview %}
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="heading-{{ summary.user.id }}">
+              {% set full_name = ((summary.user.first_name or '') ~ ' ' ~ (summary.user.last_name or '')) | trim %}
+              <button class="accordion-button collapsed d-flex flex-wrap gap-2 align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#orders-user-{{ summary.user.id }}" aria-expanded="false" aria-controls="orders-user-{{ summary.user.id }}">
+                <span class="fw-bold">{{ summary.user.username }}</span>
+                {% if full_name %}
+                  <span class="text-muted small">({{ full_name }})</span>
+                {% endif %}
+                <span class="badge bg-light text-dark ms-auto">{{ summary.total_quantity }} uds</span>
+                <span class="badge bg-secondary">{{ '%.2f'|format(summary.total_amount) }} €</span>
+              </button>
+            </h2>
+            <div id="orders-user-{{ summary.user.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ summary.user.id }}" data-bs-parent="#ordersAccordion">
+              <div class="accordion-body">
+                {% if summary.orders %}
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Imagen</th>
+                          <th>Referencia</th>
+                          <th>Nombre</th>
+                          <th>Precio</th>
+                          <th>Pedido cerrado</th>
+                          <th>Cantidad</th>
+                          <th>Total</th>
+                          <th>Editar</th>
+                          <th>Eliminar</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for order in summary.orders %}
+                          <tr>
+                            <td>
+                              {% if order.image_url %}
+                                <img src="{{ order.image_url }}" alt="{{ order.name }}" class="img-thumbnail" width="50">
+                              {% else %}
+                                <span class="text-muted small">Sin imagen</span>
+                              {% endif %}
+                            </td>
+                            <td>{{ order.reference }}</td>
+                            <td>{{ order.name }}</td>
+                            <td>
+                              {% if order.price %}
+                                {{ '%.2f'|format(order.price) }} €
+                              {% else %}
+                                N/A
+                              {% endif %}
+                            </td>
+                            <td>{{ order.initial_quantity if order.initial_quantity is not none else order.quantity }}</td>
+                            <td>{{ order.quantity }}</td>
+                            <td>{{ '%.2f'|format(order.total) }} €</td>
+                            <td>
+                              <form method="post" action="{{ url_for('main.admin_update_order') }}" class="d-flex flex-wrap gap-2 align-items-center">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="vote_id" value="{{ order.vote_id }}">
+                                <input type="hidden" name="active_tab" value="pedidos">
+                                <input type="number" min="0" name="quantity" class="form-control form-control-sm" value="{{ order.quantity }}">
+                                <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+                              </form>
+                            </td>
+                            <td>
+                              <form method="post" action="{{ url_for('main.admin_update_order') }}" onsubmit="return confirm('¿Eliminar esta referencia del pedido?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="vote_id" value="{{ order.vote_id }}">
+                                <input type="hidden" name="quantity" value="0">
+                                <input type="hidden" name="active_tab" value="pedidos">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                              </form>
+                            </td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                {% else %}
+                  <p class="text-muted">Sin referencias en el pedido.</p>
+                {% endif %}
+                <div class="border-top pt-3 mt-3">
+                  <form class="row gy-2 gx-3 align-items-end" method="post" action="{{ url_for('main.admin_add_order') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="user_id" value="{{ summary.user.id }}">
+                    <input type="hidden" name="active_tab" value="pedidos">
+                    <div class="col-sm-5">
+                      <label class="form-label">Referencia</label>
+                      <input type="text" class="form-control form-control-sm" name="reference" placeholder="Ej. 3003" required>
+                    </div>
+                    <div class="col-sm-3">
+                      <label class="form-label">Cantidad</label>
+                      <input type="number" class="form-control form-control-sm" name="quantity" min="0" required>
+                    </div>
+                    <div class="col-sm-4">
+                      <button type="submit" class="btn btn-sm btn-outline-primary w-100">Añadir / actualizar referencia</button>
+                    </div>
+                  </form>
+                  <small class="text-muted d-block mt-1">Usa cantidad 0 para eliminar si ya existe la referencia.</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-info mt-3">No hay usuarios registrados.</div>
+    {% endif %}
+  </div>
+  <!-- Pestaña Logs -->
+  <div class="tab-pane fade" id="logs" role="tabpanel" aria-labelledby="logs-tab">
+    <h3 class="mt-3">Logs de actividad</h3>
+    <p class="text-muted">Incluye logins, cambios de contraseña y votos.</p>
+    <form class="row gy-2 gx-3 align-items-end mb-3" method="get" action="{{ url_for('main.admin_dashboard') }}">
+      <input type="hidden" name="active_tab" value="logs">
+      <div class="col-sm-4">
+        <label class="form-label">Acción</label>
+        <select class="form-select" name="log_action">
+          <option value="">{{ _('ui.all') }}</option>
+          {% for action, label in log_action_labels.items() %}
+            <option value="{{ action }}" {% if action == log_action %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-4">
+        <label class="form-label">Usuario</label>
+        <select class="form-select" name="log_user">
+          <option value="">Todos</option>
+          {% for user in users %}
+            <option value="{{ user.id }}" {% if log_user_id == user.id %}selected{% endif %}>{{ user.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-4 d-flex flex-wrap gap-2">
+        <button type="submit" class="btn btn-primary">{{ _('ui.filter') }}</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('main.admin_dashboard', active_tab='logs') }}">{{ _('ui.clear') }}</a>
+      </div>
+    </form>
+    {% if log_pagination.items %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Fecha</th>
+              <th>Usuario</th>
+              <th>Acción</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in log_pagination.items %}
+              <tr class="{% if entry.action == 'vote_deleted' %}table-danger{% endif %}">
+                <td>{{ entry.created_at.strftime("%d/%m/%Y %H:%M") if entry.created_at else '' }}</td>
+                <td>{{ entry.user.username }}</td>
+                <td>{{ log_action_labels.get(entry.action, entry.action) }}</td>
+                <td>{{ entry.detail or '-' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <nav aria-label="Logs page navigation">
+        <ul class="pagination justify-content-center">
+          {% if log_pagination.has_prev %}
+            <li class="page-item">
+              <a class="page-link" href="{{ url_for('main.admin_dashboard', log_page=log_pagination.prev_num, log_action=log_action, log_user=log_user_id or '', active_tab='logs') }}" aria-label="Anterior">
+                <span aria-hidden="true">&laquo;</span>
+              </a>
+            </li>
+          {% else %}
+            <li class="page-item disabled">
+              <span class="page-link">&laquo;</span>
+            </li>
+          {% endif %}
+          {% for p in log_pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+            {% if p %}
+              {% if p == log_pagination.page %}
+                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+              {% else %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('main.admin_dashboard', log_page=p, log_action=log_action, log_user=log_user_id or '', active_tab='logs') }}">{{ p }}</a></li>
+              {% endif %}
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+          {% endfor %}
+          {% if log_pagination.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="{{ url_for('main.admin_dashboard', log_page=log_pagination.next_num, log_action=log_action, log_user=log_user_id or '', active_tab='logs') }}" aria-label="Siguiente">
+                <span aria-hidden="true">&raquo;</span>
+              </a>
+            </li>
+          {% else %}
+            <li class="page-item disabled">
+              <span class="page-link">&raquo;</span>
+            </li>
+          {% endif %}
+        </ul>
+      </nav>
+    {% else %}
+      <div class="alert alert-info">No hay logs registrados todavía.</div>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane fade" id="columnas-admin" role="tabpanel" aria-labelledby="columnas-admin-tab">
+    <div class="card my-3">
+      <div class="card-header">{{ _('ui.configure_columns') }}</div>
+      <div class="card-body">
+        <div class="row row-cols-1 row-cols-md-2 g-2">
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="ID" checked> <span class="form-check-label">ID</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Imagen" checked> <span class="form-check-label">Imagen</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Referencia" checked> <span class="form-check-label">Referencia</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Nombre" checked> <span class="form-check-label">Nombre</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Color" checked> <span class="form-check-label">Color</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Color BL" checked> <span class="form-check-label">Color BL</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Main Group Top" checked> <span class="form-check-label">Main Group Top</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Main Group" checked> <span class="form-check-label">Main Group</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Main Group Sub" checked> <span class="form-check-label">Main Group Sub</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Presente 2025" checked> <span class="form-check-label">Presente 2025</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Bloqueado" checked> <span class="form-check-label">Bloqueado</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Precio" checked> <span class="form-check-label">Precio</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Total Piezas" checked> <span class="form-check-label">{{ _('ui.total_pieces') }}</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Total Importe" checked> <span class="form-check-label">{{ _('ui.total_amount') }}</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Nº de Votos" checked> <span class="form-check-label">Nº de Votos</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Selección Final" checked> <span class="form-check-label">Selección Final</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Anular (Final)" checked> <span class="form-check-label">Anular (Final)</span></label></div>
+          <div class="col"><label class="form-check"><input class="form-check-input admin-col-toggle" type="checkbox" data-col-label="Promover (Final)" checked> <span class="form-check-label">Promover (Final)</span></label></div>
+        </div>
+        <div class="text-muted mt-2">La configuración se guarda en este navegador.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('active_tab');
+    if (activeTab) {
+      const triggerEl = document.querySelector('#' + activeTab + '-tab');
+      if (triggerEl) {
+        var tab = new bootstrap.Tab(triggerEl);
+        tab.show();
+      }
+    }
+
+  });
+
+  function selectMainGroupTop(value) {
+    document.getElementById('main_group_top').value = value;
+    document.getElementById('filtersForm').submit();
+  }
+
+  function selectMainGroup(value) {
+    document.getElementById('main_group').value = value;
+    document.getElementById('filtersForm').submit();
+  }
+
+  function selectMainGroupSub(value) {
+    document.getElementById('main_group_sub').value = value;
+    document.getElementById('filtersForm').submit();
+  }
+
+  function selectColour(value) {
+    document.getElementById('colour').value = value;
+    document.getElementById('filtersForm').submit();
+  }
+
+  
+  function setupColumnConfig(storageKey, checkboxSelector, tableSelector) {
+    const checkboxes = Array.from(document.querySelectorAll(checkboxSelector));
+    if (!checkboxes.length) {
+      return;
+    }
+    let hidden = [];
+    try {
+      hidden = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    } catch (e) {
+      hidden = [];
+    }
+    checkboxes.forEach((checkbox) => {
+      checkbox.checked = !hidden.includes(checkbox.dataset.colLabel);
+      checkbox.addEventListener('change', () => {
+        hidden = checkboxes.filter((item) => !item.checked).map((item) => item.dataset.colLabel);
+        localStorage.setItem(storageKey, JSON.stringify(hidden));
+        apply();
+      });
+    });
+
+    function apply() {
+      const tables = document.querySelectorAll(tableSelector);
+      tables.forEach((table) => {
+        const headers = Array.from(table.querySelectorAll('thead th'));
+        const headerIndex = {};
+        headers.forEach((th, idx) => {
+          headerIndex[th.textContent.trim()] = idx;
+        });
+        checkboxes.forEach((checkbox) => {
+          const label = checkbox.dataset.colLabel;
+          const idx = headerIndex[label];
+          if (idx === undefined) {
+            return;
+          }
+          const hide = !checkbox.checked;
+          const headerCell = headers[idx];
+          if (headerCell) {
+            headerCell.classList.toggle('d-none', hide);
+          }
+          table.querySelectorAll('tbody tr').forEach((row) => {
+            const cell = row.children[idx];
+            if (cell) {
+              cell.classList.toggle('d-none', hide);
+            }
+          });
+        });
+      });
+    }
+
+    apply();
+  }
+
+  setupColumnConfig('brick order manager_admin_columns', '.admin-col-toggle', '.pieces-table');
+
+  const votesOnlyToggle = document.getElementById('votesOnlyToggle');
+  if (votesOnlyToggle) {
+    votesOnlyToggle.addEventListener('click', function () {
+      const input = document.getElementById('votes_only');
+      input.value = input.value === '1' ? '' : '1';
+      document.getElementById('filtersForm').submit();
+    });
+  }
+
+  const retroToggle = document.getElementById('retroToggle');
+  if (retroToggle) {
+    const retroKey = 'brick order manager_retro_mode';
+    const applyRetro = (enabled) => {
+      document.body.classList.toggle('retro-mode', enabled);
+      retroToggle.textContent = enabled ? 'Modo normal' : 'Modo retro';
+    };
+    const saved = localStorage.getItem(retroKey) === '1';
+    applyRetro(saved);
+    retroToggle.addEventListener('click', () => {
+      const enabled = !document.body.classList.contains('retro-mode');
+      localStorage.setItem(retroKey, enabled ? '1' : '0');
+      applyRetro(enabled);
+    });
+  }
+</script>
+{% endblock %}
