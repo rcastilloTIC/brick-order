@@ -323,5 +323,10 @@ def download_commitment():
     if not name:
         abort(404)
     folder = current_app.config['DECLARATION_UPLOAD_FOLDER']
-    return send_file(os.path.join(folder, os.path.basename(name)), as_attachment=True,
-                     download_name='compromiso.pdf', mimetype='application/pdf')
+    path = os.path.join(folder, os.path.basename(name))
+    if not os.path.isfile(path):
+        # Configured but missing on disk (e.g. a restore without declarations/):
+        # tell the participant instead of failing with a server error.
+        current_app.logger.error("Commitment PDF configured but missing: %s", path)
+        return render_template('auth/commitment_unavailable.html'), 503
+    return send_file(path, as_attachment=True, download_name='compromiso.pdf', mimetype='application/pdf')

@@ -1,0 +1,27 @@
+.env
+*.db
+*.sqlite
+*.sqlite3
+data/
+__pycache__/
+*.pyc
+uploads/
+exports/
+backups/
+*.xlsx
+
+# Prevent nested local test copies (including private editions) from being published.
+isolated/
+
+# Releases, test caches, and offline restore recovery snapshots.
+.pytest_cache/
+.mypy_cache/
+*.zip
+*.tar.gz
+*.pem
+*.key
+*.log
+data.pre-restore-*/
+.valbrick-restore-*/
+.DS_Store
+__MACOSX/

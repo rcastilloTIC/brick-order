@@ -42,6 +42,10 @@ class Config:
     TRUSTED_PROXY_COUNT = int(os.getenv('TRUSTED_PROXY_COUNT', '0'))
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    # "Recordarme" cookie: same protections as the session cookie.
+    REMEMBER_COOKIE_SECURE = SESSION_COOKIE_SECURE
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
 
     # Rate limiting
     RATELIMIT_DEFAULT = "5000 per day"
@@ -52,6 +56,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     # En desarrollo, quizá quieras cookies menos restrictivas
     SESSION_COOKIE_SECURE = False
+    REMEMBER_COOKIE_SECURE = False
 
 class ProductionConfig(Config):
     # Fail fast when required deployment secrets have not been configured.
@@ -65,6 +70,7 @@ class ProductionConfig(Config):
     DEBUG = False
     # En producción, más seguro
     SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "true").lower() == "true"
+    REMEMBER_COOKIE_SECURE = SESSION_COOKIE_SECURE
 
 # Si en el futuro necesitas testing:
 class TestingConfig(Config):
