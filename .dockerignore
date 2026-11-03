@@ -1,0 +1,28 @@
+.git
+.env
+.venv
+data
+__pycache__
+*.pyc
+*.sqlite
+*.db
+
+# Prevent nested local test copies (including private editions) from being published.
+isolated/
+
+.pytest_cache
+*.pem
+*.key
+*.log
+data.pre-restore-*
+.valbrick-restore-*
+
+# Runtime data created by local (non-Docker) runs: never bake it into the image.
+uploads/
+exports/
+backups/
+*.sqlite3
+*.zip
+*.tar.gz
+*.xlsx
+.mypy_cache

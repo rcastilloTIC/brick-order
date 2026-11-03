@@ -1,7 +1,7 @@
 # VALBRICK release candidate - Python 3.11, non-root production runtime.
 FROM python:3.11-slim AS builder
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential libpq-dev \
+    && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"

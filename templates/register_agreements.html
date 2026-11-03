@@ -37,6 +37,6 @@
   </div>
   <br>
   <button type="submit" class="btn btn-primary">Siguiente</button>
-  <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-secondary">Salir</button></form>
 </form>
+<div class="mt-2"><form method="post" action="{{ url_for('auth.logout') }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-secondary">Salir</button></form></div>
 {% endblock %}
