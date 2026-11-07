@@ -1,0 +1,192 @@
+/* static/css/style.css */
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 2rem;
+  background-color: #f9f9f9;
+  color: #333;
+}
+
+h1 {
+  margin-bottom: 1rem;
+}
+
+nav {
+  margin-bottom: 1.5rem;
+}
+
+nav a {
+  margin-right: 1rem;
+  text-decoration: none;
+  color: #007BFF;
+}
+
+nav a:hover {
+  text-decoration: underline;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  margin-bottom: 0.5rem;
+}
+
+.flashes {
+  margin-bottom: 1rem;
+  padding: 0;
+}
+
+.flash {
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.flash.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.flash.warning {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.flash.danger {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+form div {
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  border: none;
+  background-color: #007BFF;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.product-image img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+/* Retro green phosphor mode (admin toggle) */
+body.retro-mode {
+  background-color: #051b0a;
+  color: #9bff9b;
+  font-family: "Courier New", Courier, monospace;
+  text-shadow: 0 0 4px rgba(155, 255, 155, 0.6);
+}
+
+body.retro-mode .navbar,
+body.retro-mode .card,
+body.retro-mode .table,
+body.retro-mode .modal-content,
+body.retro-mode .dropdown-menu {
+  background-color: #031208 !important;
+  color: #9bff9b !important;
+  border-color: #1e5d2c !important;
+}
+
+body.retro-mode .card-header,
+body.retro-mode .table-dark,
+body.retro-mode .table thead th {
+  background-color: #0b2a14 !important;
+  color: #b7ffb7 !important;
+}
+
+body.retro-mode .table-bordered > :not(caption) > * {
+  border-color: #1e5d2c !important;
+}
+
+body.retro-mode .btn {
+  background-color: #0b2a14;
+  color: #b7ffb7;
+  border-color: #1e5d2c;
+}
+
+body.retro-mode .btn-outline-success,
+body.retro-mode .btn-outline-primary,
+body.retro-mode .btn-outline-info,
+body.retro-mode .btn-outline-secondary,
+body.retro-mode .btn-outline-warning {
+  color: #b7ffb7;
+  border-color: #1e5d2c;
+}
+
+body.retro-mode .btn:hover {
+  background-color: #123a1c;
+}
+
+body.retro-mode a,
+body.retro-mode .nav-link {
+  color: #8fff8f !important;
+}
+
+body.retro-mode .table-success {
+  background-color: #0f3b1e !important;
+}
+
+body.retro-mode .table-warning {
+  background-color: #2f2a10 !important;
+  color: #f5f1b8 !important;
+}
+
+body.retro-mode input,
+body.retro-mode select,
+body.retro-mode textarea {
+  background-color: #031208;
+  color: #9bff9b;
+  border-color: #1e5d2c;
+}
+
+body.retro-mode .form-control:focus,
+body.retro-mode .form-select:focus {
+  box-shadow: 0 0 0 0.2rem rgba(155, 255, 155, 0.25);
+  border-color: #2f7a3c;
+}
+
+body.retro-mode .table thead th,
+body.retro-mode .table tbody td {
+  background-color: #031208 !important;
+  color: #9bff9b !important;
+}
+
+body.retro-mode .table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: #061f0e !important;
+}
+
+/* Accessible responsive layout: avoid clipped wide tables and cards. */
+html,body{max-width:100%;overflow-x:hidden;background:#f6f8fb}
+.container-fluid{min-width:0}.table-responsive{max-width:100%;overflow-x:auto}
+.card{border:1px solid #e6e9f0;border-radius:14px;box-shadow:0 5px 20px rgba(18,38,63,.05)}
+@media(max-width:768px){.table-responsive{overflow-x:auto}table{min-width:600px}h1{font-size:1.65rem}}

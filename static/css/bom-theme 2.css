@@ -1,0 +1,111 @@
+/* Brick Order Manager visual refresh. Adapted from user-provided BrickPool app.css. */
+:root {
+  --bom-bg:#f4f5f7; --bom-surface:#fff; --bom-border:#e2e5ea;
+  --bom-text:#1d2330; --bom-muted:#5f6878; --bom-primary:#c8102e;
+  --bom-primary-hover:#a50d26; --bom-primary-soft:#fde8eb;
+  --bom-accent:#f5b800; --bom-radius:10px;
+  --bom-shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  --bs-body-font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --bs-body-color:var(--bom-text); --bs-body-bg:var(--bom-bg);
+  --bs-primary:#c8102e; --bs-link-color:#b20e28; --bs-link-hover-color:#890c1f;
+}
+body {margin:0; min-height:100vh; background:var(--bom-bg);color:var(--bom-text);line-height:1.5}
+.navbar {background:#fff!important;border-bottom:1px solid var(--bom-border);box-shadow:var(--bom-shadow);padding-block:.7rem}
+.navbar .navbar-brand {color:var(--bom-text)!important;font-weight:750;letter-spacing:-.025em;white-space:normal}
+.navbar .nav-link {color:var(--bom-muted)!important;border-radius:6px;font-weight:550}
+.navbar .nav-link:hover,.navbar .nav-link:focus {color:var(--bom-primary)!important;background:var(--bom-primary-soft)}
+.navbar .navbar-toggler {border-color:var(--bom-border);background:#eef0f4}
+.navbar .navbar-toggler-icon {filter:invert(1) grayscale(1)}
+.container-fluid.px-3 {max-width:1440px;margin-inline:auto}
+h1,h2,h3,h4 {font-weight:720;letter-spacing:-.025em;line-height:1.25}
+h1{font-size:clamp(1.55rem,2.4vw,2rem)} h2{font-size:clamp(1.3rem,2vw,1.65rem)}
+.card,.modal-content,.dropdown-menu {border:1px solid var(--bom-border);border-radius:var(--bom-radius);box-shadow:var(--bom-shadow);background:var(--bom-surface)}
+.card-header {background:#f8f9fb;border-bottom:1px solid var(--bom-border);font-weight:650}
+.btn {border-radius:7px;font-weight:600;min-height:38px;transition:background-color .15s,border-color .15s,box-shadow .15s}
+.btn-sm {min-height:32px}
+.btn-primary {--bs-btn-bg:var(--bom-primary);--bs-btn-border-color:var(--bom-primary);--bs-btn-hover-bg:var(--bom-primary-hover);--bs-btn-hover-border-color:var(--bom-primary-hover);--bs-btn-active-bg:var(--bom-primary-hover);--bs-btn-active-border-color:var(--bom-primary-hover);--bs-btn-focus-shadow-rgb:200,16,46}
+.btn-outline-primary {--bs-btn-color:var(--bom-primary);--bs-btn-border-color:var(--bom-primary);--bs-btn-hover-bg:var(--bom-primary);--bs-btn-hover-border-color:var(--bom-primary)}
+.form-label,label {font-weight:600}
+.form-control,.form-select {min-height:40px;border-radius:7px;border-color:#d5d9e1;background-color:#fff;color:var(--bom-text)}
+.form-control:focus,.form-select:focus {border-color:var(--bom-primary);box-shadow:0 0 0 .2rem rgba(200,16,46,.14)}
+:focus-visible {outline:3px solid var(--bom-accent);outline-offset:2px}
+.form-text,.text-muted {color:var(--bom-muted)!important}
+.alert {border-radius:8px;border-width:1px;padding:.85rem 1rem}
+.table-responsive {border:1px solid var(--bom-border);border-radius:var(--bom-radius);background:#fff}
+.table {--bs-table-bg:transparent;--bs-table-hover-bg:#f8f9fb;vertical-align:middle;font-size:.94rem;margin-bottom:0}
+.table thead th {background:#f8f9fb;color:var(--bom-muted);font-size:.81rem;letter-spacing:.025em;white-space:nowrap}
+.table th,.table td{padding:.7rem .8rem;border-color:var(--bom-border)}
+.table td.text-end,.table th.text-end{font-variant-numeric:tabular-nums}
+.badge {font-weight:650;border-radius:999px;padding:.4em .65em}
+.nav-pills .nav-link.active,.page-link.active {background:var(--bom-primary)}
+.nav-tabs .nav-link.active{border-bottom:2px solid var(--bom-primary);font-weight:650;color:var(--bom-primary)}
+.pagination .page-link {color:var(--bom-primary)}
+.pagination .active .page-link {background:var(--bom-primary);border-color:var(--bom-primary);color:white}
+/* A centered, accessible authentication surface without changing form endpoints. */
+.bom-auth-layout{min-height:calc(100vh - 11rem);display:flex;align-items:center;justify-content:center}
+.bom-auth-card{background:#fff;padding:clamp(1.25rem,3vw,2.25rem);border:1px solid var(--bom-border);border-radius:14px;box-shadow:0 12px 34px rgba(16,24,40,.08);width:100%;max-width:480px}
+.bom-auth-card h2{margin-bottom:1.25rem!important}
+/* Campaign data should remain readable on phones. */
+.table-responsive {overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media (max-width:767.98px){.navbar .container-fluid{align-items:flex-start}.container-fluid.px-3{padding-inline:.85rem!important}.table th,.table td{padding:.55rem}.btn{white-space:normal}.bom-auth-layout{min-height:65vh}}
+@media (prefers-color-scheme:dark){:root{--bom-bg:#12151c;--bom-surface:#1b1f29;--bom-border:#303747;--bom-text:#e8eaf0;--bom-muted:#a2a9b8;--bom-primary:#ef4359;--bom-primary-hover:#ff6176;--bom-primary-soft:#3a1b22;--bs-body-color:var(--bom-text);--bs-body-bg:var(--bom-bg);color-scheme:dark}
+.navbar,.card,.modal-content,.dropdown-menu,.bom-auth-card,.table-responsive{background:var(--bom-surface)!important;color:var(--bom-text)}
+.card-header,.table thead th{background:#222734;color:var(--bom-muted)}
+.form-control,.form-select{background:#222734;color:var(--bom-text);border-color:var(--bom-border)}
+.form-control:focus,.form-select:focus{background:#222734;color:var(--bom-text)}
+.table{--bs-table-color:var(--bom-text);--bs-table-hover-bg:#252b38}
+.navbar .navbar-toggler{background:#d8dce6}}
+@media print{.navbar,.btn{display:none!important}body{background:white;color:black}.card{box-shadow:none}}
+
+
+/* VALBRICK 2026: application shell and usable surfaces */
+:root {--bom-page-max:1320px;--bom-topbar-h:68px;--bom-ring:#f5b800;}
+.bom-app{display:flex;flex-direction:column;min-height:100vh}
+.bom-topbar{position:sticky;top:0;z-index:1030;min-height:var(--bom-topbar-h);background:var(--bom-surface)!important;box-shadow:none;border-bottom:1px solid var(--bom-border)}
+.bom-topbar-inner{max-width:var(--bom-page-max);margin-inline:auto;gap:1.25rem}
+.bom-brand{display:flex;align-items:center;gap:.75rem;text-decoration:none!important}
+.bom-brand-wordmark{display:flex;flex-direction:column;line-height:1.12}
+.bom-brand-wordmark strong{font-size:1.07rem;letter-spacing:.035em}
+.bom-brand-wordmark small{font-size:.69rem;color:var(--bom-muted);font-weight:550;letter-spacing:.01em;margin-top:.2rem}
+.bom-logo{background:var(--bom-primary);border-radius:9px;width:40px;height:40px;display:grid;grid-template-columns:repeat(2,1fr);gap:3px;padding:9px;flex:none;box-shadow:0 5px 15px rgba(200,16,46,.19)}
+.bom-logo span{background:#fff;border-radius:50%;box-shadow:inset 0 -2px 1px rgba(0,0,0,.15)}
+.bom-top-links .nav-link{padding:.65rem .95rem!important;font-size:.91rem}
+.bom-top-links .nav-link.active{background:var(--bom-primary-soft);color:var(--bom-primary)!important}
+.bom-nav-actions{display:flex;align-items:center;gap:.55rem}
+.bom-lang-button,.bom-user-button{border:1px solid var(--bom-border);background:var(--bom-surface);color:var(--bom-text);min-height:37px}
+.bom-user-button{display:flex;align-items:center;gap:.55rem;padding:.3rem .7rem}
+.bom-avatar{display:inline-flex;align-items:center;justify-content:center;width:27px;height:27px;border-radius:50%;background:var(--bom-primary);color:white;font-size:.8rem;font-weight:700}
+.bom-admin-nav{background:var(--bom-surface);border-bottom:1px solid var(--bom-border)}
+.bom-admin-nav-inner{max-width:var(--bom-page-max);margin:auto;display:flex;gap:.35rem;padding:.4rem 1rem;overflow-x:auto;scrollbar-width:thin}
+.bom-admin-nav a{flex:none;text-decoration:none;font-size:.85rem;font-weight:650;color:var(--bom-muted);padding:.48rem .75rem;border-radius:7px;white-space:nowrap}
+.bom-admin-nav a:hover{background:var(--bom-bg);color:var(--bom-text)}
+.bom-admin-nav a.active{background:var(--bom-primary-soft);color:var(--bom-primary)}
+.bom-main{width:min(calc(100% - 2.5rem),var(--bom-page-max));margin:0 auto;padding:2rem 0 3.5rem;flex:1;min-width:0}
+.bom-main-auth{display:flex;flex-direction:column;justify-content:center;width:min(calc(100% - 2rem),560px);padding-block:2rem}
+.bom-main-auth .bom-auth-layout{width:100%;min-height:0}
+.bom-main-auth .bom-auth-card{max-width:480px;box-shadow:0 18px 55px rgba(16,24,40,.10);padding:2rem}
+.bom-main-auth .bom-auth-card h2{font-size:1.45rem}
+.bom-footer{font-size:.78rem;color:var(--bom-muted);text-align:center;padding:1rem;border-top:1px solid var(--bom-border)}
+.bom-skip-link{position:absolute;top:-100px;left:1rem;padding:.6rem 1rem;background:var(--bom-surface);z-index:1100}
+.bom-skip-link:focus{top:.5rem}
+.bom-main > h1:first-child,.bom-main > h2:first-child{margin-bottom:1.2rem}
+.bom-main .card{overflow-wrap:anywhere}
+.bom-main .card-header{padding:.85rem 1.1rem}
+.bom-main .card-body{padding:1.15rem}
+.bom-main .table-responsive{max-width:100%}
+.bom-main .table>:not(caption)>*>*{background:transparent}
+.bom-main .table thead th{background:var(--bom-bg)}
+.bom-main :is(input,select,textarea,button,a):focus-visible{outline:3px solid var(--bom-ring);outline-offset:2px}
+.bom-main input[type=number]{font-variant-numeric:tabular-nums}
+.bom-main .btn-outline-secondary{--bs-btn-color:var(--bom-text);--bs-btn-border-color:var(--bom-border);--bs-btn-hover-bg:var(--bom-bg);--bs-btn-hover-color:var(--bom-text);--bs-btn-hover-border-color:var(--bom-muted)}
+.bom-main .form-check-input:checked{background-color:var(--bom-primary);border-color:var(--bom-primary)}
+.bom-main .alert{box-shadow:none}
+.bom-notices{margin-bottom:1.25rem}
+.bom-main .badge{letter-spacing:.01em}
+.bom-main .btn-link{color:var(--bom-primary)}
+.bom-main :is(.table-responsive,.card,fieldset){min-width:0}
+@media(max-width:991.98px){.bom-topbar-inner{gap:.3rem}.bom-topbar .navbar-collapse{padding:1rem 0}.bom-nav-actions{justify-content:flex-start;padding-top:.75rem}.bom-top-links .nav-link{padding:.55rem .65rem!important}}
+@media(max-width:640px){.bom-main{width:calc(100% - 1.4rem);padding:1.25rem 0 2rem}.bom-main-auth{width:calc(100% - 1.4rem)}.bom-brand-wordmark strong{font-size:.95rem}.bom-brand-wordmark small{font-size:.63rem}.bom-main-auth .bom-auth-card{padding:1.25rem}.bom-admin-nav-inner{padding-inline:.55rem}.bom-main .card-body{padding:.9rem}.bom-main .card-header{padding:.75rem .9rem}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+@media(prefers-color-scheme:dark){.bom-nav-actions .btn{color:var(--bom-text)}.bom-main .table thead th{background:#222734}.bom-admin-nav a:hover{background:#252b38}.bom-logo{box-shadow:none}}
+@media print{.bom-topbar,.bom-admin-nav,.bom-footer,.bom-notices{display:none!important}.bom-main{width:100%;padding:0}.bom-main .card{break-inside:avoid}}

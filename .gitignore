@@ -25,3 +25,5 @@ data.pre-restore-*/
 .valbrick-restore-*/
 .DS_Store
 __MACOSX/
+.DS_Store
+__MACOSX/
