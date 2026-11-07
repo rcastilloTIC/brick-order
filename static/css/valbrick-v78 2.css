@@ -1,0 +1,35 @@
+/* VALBRICK release 78: density, accessibility and cross-theme refinements. */
+:root{--vb-space:clamp(18px,2.25vw,34px);--vb-round:16px}
+.bom-main{max-width:100%;min-width:0}
+.vb-workspace-main{min-width:0}
+.vb-workspace-main .bom-main{max-width:1700px;margin:0 auto;padding:var(--vb-space)}
+.bom-main .vb-page-head{align-items:flex-start!important;gap:1.2rem!important;margin-bottom:1.65rem!important}
+.bom-main .vb-page-head h1,.bom-main .vb-page-head h2{font-weight:770;letter-spacing:-.025em;line-height:1.18}
+.bom-main .vb-subtitle{max-width:70ch;line-height:1.55}
+.vb-admin-overview,.vb-budget-grid{gap:clamp(13px,1.5vw,23px)!important;margin-bottom:24px!important}
+.bom-main .vb-kpi{min-width:0;padding:clamp(19px,1.7vw,28px)!important;border-radius:var(--vb-round)!important;overflow-wrap:anywhere}
+.bom-main .vb-kpi strong{font-variant-numeric:tabular-nums;line-height:1.2}
+.bom-main .card{border-radius:var(--vb-round)!important;overflow:hidden;margin-bottom:24px!important}
+.bom-main .card-header{padding:18px 23px!important}
+.bom-main .card-body{padding:clamp(18px,1.9vw,28px)!important}
+.bom-main .vb-filters{gap:16px!important;padding:clamp(18px,1.8vw,27px)!important;border-radius:var(--vb-round)!important}
+.bom-main .vb-filters>.col-auto{flex-grow:1;flex-shrink:1;min-width:min(100%,170px)}
+.bom-main .vb-filters>.col-auto:first-child,.bom-main .vb-filters>.col-auto:nth-child(2){flex-basis:230px}
+.bom-main .vb-filters button,.bom-main .vb-filters input{min-height:46px}
+.bom-main .table-responsive{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
+.bom-main .table{min-width:max-content;line-height:1.5}
+.bom-main .table th,.bom-main .table td{white-space:normal;vertical-align:middle}
+.bom-main .table thead th{position:sticky;top:0;z-index:1;white-space:nowrap}
+.bom-main .table tbody td{padding:15px 14px!important}
+.bom-main .table input[type=number]{min-width:76px;text-align:center}
+.bom-main .btn{min-height:40px;display:inline-flex;justify-content:center;align-items:center;gap:.4rem}
+.bom-main .btn-sm{min-height:34px}
+.bom-main .btn:focus-visible,.bom-main a:focus-visible,.bom-main select:focus-visible,.bom-main input:focus-visible,.vb-sidebar-link:focus-visible{outline:3px solid var(--bom-primary)!important;outline-offset:3px}
+.bom-main .alert{line-height:1.65;border-radius:12px;padding:15px 18px}
+.bom-main details>summary{cursor:pointer}
+.bom-main .vb-translation-table textarea{min-width:220px;max-width:100%}
+html[data-vb-theme="light"] .bom-main .table tbody tr:hover td{background:#e9eff9!important}
+html[data-vb-theme="dark"] .bom-main .table tbody tr:hover td{background:#25344a!important}
+@media(max-width:880px){.vb-workspace-main .bom-main{padding:20px 14px}.bom-main .vb-filters>.col-auto{flex-basis:calc(50% - 10px);min-width:180px}.bom-main .card-body{padding:18px!important}}
+@media(max-width:520px){.bom-main .vb-filters>.col-auto{flex-basis:100%;min-width:0}.bom-main .vb-kpi{padding:20px!important}.bom-main .table tbody td{padding:11px!important}.bom-main .btn{white-space:normal}}
+@media(prefers-reduced-motion:reduce){.bom-main *,.vb-sidebar *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
